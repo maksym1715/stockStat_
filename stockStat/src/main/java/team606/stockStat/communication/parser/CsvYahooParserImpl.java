@@ -8,17 +8,25 @@ import java.util.Date;
 import java.util.List;
 import java.text.ParseException;
 
-
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.opencsv.CSVReader;
 import com.opencsv.exceptions.CsvException;
 
+import team606.stockStat.communication.dao.CsvDataRepository;
+import team606.stockStat.communication.dao.UploadInfoRepository;
+
 @Service
 public class CsvYahooParserImpl implements CsvParser{
 
 	private final SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd");
+	
+	@Autowired
+    private CsvDataRepository csvDataRepository; 
+    @Autowired
+    private UploadInfoRepository uploadInfoRepository; 
 
 	@Override
     public List<CsvData> parseCsvFile(MultipartFile file, String fromDate, String toDate) throws IOException, ParseException, CsvException{
@@ -34,6 +42,7 @@ public class CsvYahooParserImpl implements CsvParser{
                 UploadInfo uploadInfo = new UploadInfo();
                 uploadInfo.setDate(line[0]);
                 uploadInfo.setSource(line[1]);
+                uploadInfo = uploadInfoRepository.save(uploadInfo); 
                 data.setUploadInfoId(uploadInfo);
                 try {
                     data.setClose(Double.parseDouble(line[2]));
@@ -61,6 +70,8 @@ public class CsvYahooParserImpl implements CsvParser{
                 }
             }
         }
+        
+        csvDataRepository.saveAll(dataList);
 
         return dataList;
     }

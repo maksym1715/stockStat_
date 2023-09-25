@@ -30,5 +30,7 @@ public class CommunicetionController {
 			@RequestParam String toDate) throws IOException, CsvException, java.text.ParseException {
 		return csvParser.parseCsvFile(file, fromDate, toDate);
 	}
+	
+	
 
 }

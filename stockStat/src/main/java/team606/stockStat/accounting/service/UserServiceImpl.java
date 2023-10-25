@@ -14,8 +14,9 @@ import team606.stockStat.accounting.dto.UserDto;
 import team606.stockStat.accounting.dto.UserEditDto;
 import team606.stockStat.accounting.dto.UserRegisterDto;
 import team606.stockStat.accounting.dto.exceptions.UserExistsException;
+import team606.stockStat.accounting.dto.exceptions.UserNotFoundException;
 import team606.stockStat.accounting.model.UserAccount;
-import telran.java47.accounting.dto.exceptions.UserNotFoundException;
+
 
 
 @Service

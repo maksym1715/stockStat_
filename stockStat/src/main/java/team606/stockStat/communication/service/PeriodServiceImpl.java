@@ -12,9 +12,7 @@ import team606.stockStat.communication.dto.PeriodRequest;
 public class PeriodServiceImpl implements  PeriodService{
 
 	public List<PeriodData> getPeriodBetween(PeriodRequest request) {
-        String apiUrl = "http://localhost:8080"; 
-        RestTemplate restTemplate = new RestTemplate();
-        return Arrays.asList(restTemplate.postForObject(apiUrl + "/communication/index", request, PeriodData[].class));
+        //Maksim have to check.
     }
 
 	

@@ -42,8 +42,8 @@ public class CommunicetionController {
 	}
 	
 	 @GetMapping("/index/{indexName}")
-	    public ResponseEntity<String> getTimeHistoryForIndex(@PathVariable String indexName) {
-	        String response = indexService.getTimeHistoryForIndex(indexName);
+	    public ResponseEntity<List<CsvData>> getTimeHistoryForIndex(@PathVariable String indexName) {
+	        List<CsvData> response = indexService.getTimeHistoryForIndex(indexName);
 	        return ResponseEntity.ok(response);
 	    }
     

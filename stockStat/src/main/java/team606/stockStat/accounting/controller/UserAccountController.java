@@ -42,6 +42,9 @@ public class UserAccountController {
 	public boolean loginUser(@RequestBody UserDto userDto) {
 		return userService.login(userDto.getUsername(),userDto.getPassword());
 	}
+
+    // TODO: 18/11/2023
+    //Add funcrion for deletion user. 
 //
 //	@GetMapping("/user/{login}")
 //	public UserDto getUser(@PathVariable String login) {

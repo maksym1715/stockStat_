@@ -3,6 +3,7 @@ package team606.stockStat.communication.parser;
 import java.io.IOException;
 import java.io.InputStreamReader;
 import java.text.SimpleDateFormat;
+import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
@@ -32,7 +33,7 @@ public class CsvYahooParserImpl implements CsvParser{
     public List<CsvData> parseCsvFile(MultipartFile file, String fromDate, String toDate) throws IOException, ParseException, CsvException{
         Date fromDateObj = dateFormat.parse(fromDate);
         Date toDateObj = dateFormat.parse(toDate);
-
+        String indexName = file.getOriginalFilename().split(".")[0];
         List<CsvData> dataList = new ArrayList<>();
 
         try (CSVReader reader = new CSVReader(new InputStreamReader(file.getInputStream()))) {
@@ -40,7 +41,7 @@ public class CsvYahooParserImpl implements CsvParser{
             while ((line = reader.readNext()) != null) {
                 CsvData data = new CsvData();
                 UploadInfo uploadInfo = new UploadInfo();
-                uploadInfo.setDate(line[0]);
+                uploadInfo.setDate(LocalDate.parse(line[0]));
                 uploadInfo.setSource(line[1]);
                 uploadInfo = uploadInfoRepository.save(uploadInfo); 
                 data.setUploadInfoId(uploadInfo);
@@ -50,20 +51,19 @@ public class CsvYahooParserImpl implements CsvParser{
                     data.setOpen(Double.parseDouble(line[4]));
                     data.setHigh(Double.parseDouble(line[5]));
                     data.setLow(Double.parseDouble(line[6]));
-                    
                 } catch (NumberFormatException e) {
                     e.printStackTrace(); 
                 }                
                
-                String dateString = uploadInfo.getDate();
+                LocalDate dateString = uploadInfo.getDate();
                 Date dataDate = null;
 
-                try {
-                    dataDate = dateFormat.parse(dateString);
-                } catch (ParseException e) {
-                    e.printStackTrace();
-                }
-      
+//                try {
+//                    dataDate = dateFormat.parse(dateString);
+//                } catch (ParseException e) {
+//                    e.printStackTrace();
+//                }
+//
                 
                 if (dataDate != null && dataDate.compareTo(fromDateObj) >= 0 && dataDate.compareTo(toDateObj) <= 0) {
                     dataList.add(data);

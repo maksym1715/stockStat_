@@ -40,10 +40,12 @@ public class IndexServiceImpl implements IndexService {
 
 	@Override
     public List<String> getAllIndexes() {
+		
         //1. You should add query where you find all unique values in uploadInfo table.
         //2. Pay attention that you should get all unique values, for example you have: BSS,BSS,AAA,QQQ -
         //from this values you need only unique values.
-
+		List<String> uniqueIndexes = uploadInfoRepository.findAllDistinctIndexes();
+	    return uniqueIndexes;
 
     }
 

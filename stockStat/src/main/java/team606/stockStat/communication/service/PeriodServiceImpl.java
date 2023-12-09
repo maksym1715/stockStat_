@@ -8,13 +8,13 @@ import org.springframework.web.client.RestTemplate;
 
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodRequest;
-@Service
-public class PeriodServiceImpl implements  PeriodService{
 
-	public List<PeriodData> getPeriodBetween(PeriodRequest request) {
-        //Maksim have to check.
+@Service
+public class PeriodServiceImpl implements PeriodService {
+
+    public List<PeriodData> getPeriodBetween(PeriodRequest request) {
+        return null;
     }
 
-	
 
 }

@@ -47,11 +47,11 @@ public class CsvYahooParserImpl implements CsvParser{
                 uploadInfo = uploadInfoRepository.save(uploadInfo); 
                 data.setUploadInfoId(uploadInfo);
                 try {
-                    data.setClose(Double.parseDouble(line[2]));
-                    data.setVolume(Double.parseDouble(line[3]));
-                    data.setOpen(Double.parseDouble(line[4]));
-                    data.setHigh(Double.parseDouble(line[5]));
-                    data.setLow(Double.parseDouble(line[6]));
+                    data.setClose(Double.parseDouble(line[4]));
+                    data.setVolume(Double.parseDouble(line[6]));
+                    data.setOpen(Double.parseDouble(line[1]));
+                    data.setHigh(Double.parseDouble(line[2]));
+                    data.setLow(Double.parseDouble(line[3]));
                     data.setUploadInfoId(uploadInfo);
                 } catch (NumberFormatException e) {
                     e.printStackTrace(); 

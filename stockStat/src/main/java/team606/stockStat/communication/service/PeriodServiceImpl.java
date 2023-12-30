@@ -12,6 +12,7 @@ import team606.stockStat.communication.dto.PeriodRequest;
 @Service
 public class PeriodServiceImpl implements PeriodService {
 
+
     public List<PeriodData> getPeriodBetween(PeriodRequest request) {
         return null;
     }

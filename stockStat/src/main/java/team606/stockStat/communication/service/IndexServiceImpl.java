@@ -41,13 +41,13 @@ public class IndexServiceImpl implements IndexService {
             Map<LocalDate, CsvData> allByUploadInfoIdIn = csvDataRepository.findAllByUploadInfoIdIn(uploadInfo.getValue())
                     .stream()
                     .collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), b -> b));
-
+           // check that all maps is sorted here according to date.
             for (Map.Entry<LocalDate, CsvData> objectObjectEntry : allByUploadInfoIdIn.entrySet()) {
                 LocalDate firstDate = objectObjectEntry.getValue().getUploadInfoId().getDate();
                 LocalDate secondDate = TimePeriods.getAnalyze(timePeriods, firstDate, quantity);
                 CsvData firstData = objectObjectEntry.getValue();
                 CsvData csvDataLastPeriod = allByUploadInfoIdIn.get(secondDate);
-                //calculation
+                //make calculation and save it in data structire and then make comparing. In firstDate we take min price and in second the max value(for max profit case)
             }
         }
     }

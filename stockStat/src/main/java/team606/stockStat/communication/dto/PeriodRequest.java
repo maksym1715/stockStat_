@@ -8,6 +8,7 @@ import lombok.Builder;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
+import team606.stockStat.communication.parser.UploadInfo;
 
 @Getter
 
@@ -15,7 +16,7 @@ import lombok.Setter;
 public class PeriodRequest {
 	 private List<String> indexes;
 	    private String type;
-	    private int quantity;
+	    private Long quantity;
 	    private LocalDate from;
 	    private LocalDate to;
 }

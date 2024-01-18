@@ -2,6 +2,8 @@ package team606.stockStat.communication.controller;
 
 import java.io.IOException;
 import java.util.List;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -17,8 +19,10 @@ import org.springframework.web.multipart.MultipartFile;
 import com.opencsv.exceptions.CsvException;
 
 import lombok.RequiredArgsConstructor;
+import team606.stockStat.communication.dao.TimePeriods;
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodRequest;
+import team606.stockStat.communication.dto.ResponseDto;
 import team606.stockStat.communication.parser.CsvData;
 import team606.stockStat.communication.parser.CsvParser;
 import team606.stockStat.communication.service.IndexService;
@@ -31,6 +35,8 @@ public class CommunicetionController {
 	
 	private final IndexService indexService;
 	private final PeriodService periodService;
+	
+	 
 
 	@Autowired
 	private CsvParser csvParser;
@@ -41,7 +47,7 @@ public class CommunicetionController {
 		return csvParser.parseCsvFile(file, fromDate, toDate);
 	}
 	
-	 @GetMapping("/index/{indexName}")
+	 @GetMapping("/parser/{indexName}")
 	    public ResponseEntity<List<CsvData>> getTimeHistoryForIndex(@PathVariable String indexName) {
 	        List<CsvData> response = indexService.getTimeHistoryForIndex(indexName);
 	        return ResponseEntity.ok(response);
@@ -55,7 +61,30 @@ public class CommunicetionController {
     
     @PostMapping("/period")
     public ResponseEntity<List<PeriodData>> getPeriodBetween(@RequestBody PeriodRequest request) {
-        List<PeriodData> periodData = periodService.getPeriodBetween(request);
+        List<ResponseDto> responseDtos = indexService.getAllDataBySources(
+        		TimePeriods.valueOf(request.getType()),
+                request.getIndexes(),
+                request.getFrom(),
+                request.getTo(),
+                Long.valueOf(request.getQuantity())
+        );
+
+        List<PeriodData> periodData = responseDtos.stream()
+                .map(responseDto -> {
+                    PeriodData periodDataItem = new PeriodData();
+                    periodDataItem.setFrom(responseDto.getFrom());
+                    periodDataItem.setTo(responseDto.getTo());
+                    periodDataItem.setSource(responseDto.getSource());
+                    periodDataItem.setType(responseDto.getType());
+                    periodDataItem.setMax(responseDto.getMax());
+                    periodDataItem.setMean(responseDto.getMean());
+                    periodDataItem.setMedian(responseDto.getMedian());
+                    periodDataItem.setMin(responseDto.getMin());
+                    periodDataItem.setStd(responseDto.getStd());
+                    return periodDataItem;
+                })
+                .collect(Collectors.toList());
+
         return ResponseEntity.ok(periodData);
     }
     

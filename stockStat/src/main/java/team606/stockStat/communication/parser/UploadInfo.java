@@ -21,6 +21,6 @@ public class UploadInfo {
     private Long id;
 	private LocalDate date;
     private String source;
-    private String indexName;
+   
 
 }

@@ -8,7 +8,8 @@ import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
-import telran.java47.accounting.dto.exceptions.UserExistsException;
+
+import team606.stockStat.accounting.dto.exceptions.UserExistsException;
 
 import java.util.HashSet;
 import java.util.Set;

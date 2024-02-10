@@ -7,6 +7,7 @@ import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,6 +21,10 @@ import com.opencsv.exceptions.CsvException;
 
 import lombok.RequiredArgsConstructor;
 import team606.stockStat.communication.dao.TimePeriods;
+import team606.stockStat.communication.dto.CalculateIncomeWithApyRequest;
+import team606.stockStat.communication.dto.CalculateSumPackageRequest;
+import team606.stockStat.communication.dto.CorrelationRequest;
+import team606.stockStat.communication.dto.IncomeWithApy;
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodRequest;
 import team606.stockStat.communication.dto.ResponseDto;
@@ -88,6 +93,35 @@ public class CommunicetionController {
         return ResponseEntity.ok(periodData);
     }
     
- 
+    @PostMapping("/data")
+    public ResponseEntity<List<PeriodData>> getAllValueCloseBetween(@RequestBody PeriodRequest request) {
+        List<PeriodData> periodData = indexService.getAllValueCloseBetween(request);
+        return ResponseEntity.ok(periodData);
+    }
+    
+    @PostMapping("/index/sum")
+    public ResponseEntity<List<PeriodData>> calculateSumPackage(@RequestBody CalculateSumPackageRequest request) {
+        List<PeriodData> result = indexService.calculateSumPackage(request);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/index/apy")
+    public ResponseEntity<List<IncomeWithApy>> calculateIncomeWithApy(@RequestBody CalculateIncomeWithApyRequest request) {
+        List<IncomeWithApy> result = indexService.calculateIncomeWithApy(request);
+        return ResponseEntity.ok(result);
+    }
+
+    @PostMapping("/index/apy_all")
+    public ResponseEntity<List<IncomeWithApy>> calculateIncomeWithApyAllDate(@RequestBody CalculateIncomeWithApyRequest request) {
+        List<IncomeWithApy> result = indexService.calculateIncomeWithApyAllDate(request);
+        return ResponseEntity.ok(result);
+    }
+    
+    @PostMapping("/index/correlation")
+    public String calculateCorrelation(@RequestBody CorrelationRequest correlationRequest) {
+        return indexService.calculateCorrelation(correlationRequest);
+    }
+
+   
 
 }

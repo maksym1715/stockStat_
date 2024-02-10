@@ -197,46 +197,46 @@ public class IndexServiceImpl implements IndexService {
                 .collect(Collectors.groupingBy(UploadInfo::getSource));
 
         List<PeriodData> result = new ArrayList<>();
-
-        for (Map.Entry<String, List<UploadInfo>> entry : allBySource.entrySet()) {
-            List<UploadInfo> uploadInfos = entry.getValue();
-
-            // Collecting all CsvData for the given source and time period
-            List<CsvData> csvDataList = csvDataRepository.findAllByUploadInfoIdIn(uploadInfos);
-
-            // Creating a map with dates as keys and corresponding CsvData as values
-            Map<LocalDate, CsvData> allByUploadInfoIdIn = csvDataList.stream()
-                    .filter(csvData -> csvData.getUploadInfoId() != null)
-                    .collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), Function.identity(),
-                            BinaryOperator.maxBy(Comparator.comparing(csvData -> csvData.getUploadInfoId().getDate()))));
-
-            for (Map.Entry<LocalDate, CsvData> objectObjectEntry : allByUploadInfoIdIn.entrySet()) {
-                LocalDate firstDate = objectObjectEntry.getKey();
-                LocalDate secondDate = TimePeriods.getAnalyze(TimePeriods.valueOf(request.getType()), firstDate, Long.valueOf(request.getQuantity()));
-
-                List<Double> closingPrices = allByUploadInfoIdIn.values().stream()
-                        .map(csvData -> csvData.getClose())
-                        .collect(Collectors.toList());
-
-                // Summing up the closing prices for each stock in the package
-                double sum = IntStream.range(0, request.getIndexs().size())
-                        .mapToDouble(i -> request.getAmount().get(i) * closingPrices.get(i))
-                        .sum();
-
-                // Creating PeriodData with calculated sum and other statistics
-                PeriodData periodData = new PeriodData();
-                periodData.setFrom(firstDate);
-                periodData.setTo(secondDate);
-                periodData.setSource(entry.getKey());
-                periodData.setType(request.getQuantity() + " " + request.getType().toLowerCase());
-                periodData.setMean(sum);  // Assuming mean is the sum in this context
-                periodData.setMin(Collections.min(closingPrices) * request.getAmount().get(0));  // Assuming min is the min of the first stock
-                periodData.setMax(Collections.max(closingPrices) * request.getAmount().get(0));  // Assuming max is the max of the first stock
-                periodData.setStd(calculateStandardDeviation(closingPrices));  // Assuming std is the standard deviation of closing prices
-
-                result.add(periodData);
-            }
-        }
+//
+//        for (Map.Entry<String, List<UploadInfo>> entry : allBySource.entrySet()) {
+//            List<UploadInfo> uploadInfos = entry.getValue();
+//
+//            // Collecting all CsvData for the given source and time period
+//            List<CsvData> csvDataList = csvDataRepository.findAllByUploadInfoIdIn(uploadInfos);
+//
+//            // Creating a map with dates as keys and corresponding CsvData as values
+//            Map<LocalDate, CsvData> allByUploadInfoIdIn = csvDataList.stream()
+//                    .filter(csvData -> csvData.getUploadInfoId() != null)
+//                    .collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), Function.identity(),
+//                            BinaryOperator.maxBy(Comparator.comparing(csvData -> csvData.getUploadInfoId().getDate()))));
+//
+//            for (Map.Entry<LocalDate, CsvData> objectObjectEntry : allByUploadInfoIdIn.entrySet()) {
+//                LocalDate firstDate = objectObjectEntry.getKey();
+//                LocalDate secondDate = TimePeriods.getAnalyze(TimePeriods.valueOf(request.getType()), firstDate, Long.valueOf(request.getQuantity()));
+//
+//                List<Double> closingPrices = allByUploadInfoIdIn.values().stream()
+//                        .map(csvData -> csvData.getClose())
+//                        .collect(Collectors.toList());
+//
+//                // Summing up the closing prices for each stock in the package
+//                double sum = IntStream.range(0, request.getIndexs().size())
+//                        .mapToDouble(i -> request.getAmount().get(i) * closingPrices.get(i))
+//                        .sum();
+//
+//                // Creating PeriodData with calculated sum and other statistics
+//                PeriodData periodData = new PeriodData();
+//                periodData.setFrom(firstDate);
+//                periodData.setTo(secondDate);
+//                periodData.setSource(entry.getKey());
+//                periodData.setType(request.getQuantity() + " " + request.getType().toLowerCase());
+//                periodData.setMean(sum);  // Assuming mean is the sum in this context
+//                periodData.setMin(Collections.min(closingPrices) * request.getAmount().get(0));  // Assuming min is the min of the first stock
+//                periodData.setMax(Collections.max(closingPrices) * request.getAmount().get(0));  // Assuming max is the max of the first stock
+//                periodData.setStd(calculateStandardDeviation(closingPrices));  // Assuming std is the standard deviation of closing prices
+//
+//                result.add(periodData);
+//            }
+//        }
         return result;
     }
 

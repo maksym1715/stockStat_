@@ -38,7 +38,7 @@ public class IndexServiceImpl implements IndexService {
 
     @Override
     public List<ResponseDto> getAllDataBySources(TimePeriods timePeriods, List<String> source, LocalDate from, LocalDate to, Long quantity) {
-
+        to = to.plusDays(1);
         List<UploadInfo> listUploadInfo = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(source, from, to);
         Comparator<UploadInfo> comparator = Comparator.comparing(UploadInfo::getDate);
 
@@ -67,13 +67,20 @@ public class IndexServiceImpl implements IndexService {
                 LocalDate secondDate = TimePeriods.getAnalyze(timePeriods, firstDate, quantity);
                 CsvData dataFirstDate = objectObjectEntry.getValue();
                 CsvData dataSecondDate = newMap.get(secondDate);
+                if (dataSecondDate == null) {
+                    break;
+                }
+                
                 double max = dataSecondDate.getHigh() - dataFirstDate.getLow();
                 double min = dataSecondDate.getLow() - dataFirstDate.getHigh();
                 resultList.add(max);
                 resultList.add(min);
             }
             ResponseDto responseDto = new ResponseDto();
+            responseDto.setFrom(from);
+            responseDto.setTo(to);
             responseDto.setSource(entry.getKey());
+            responseDto.setType(quantity + " " + timePeriods.toString());
             responseDto.setMedian(calculateMedian(resultList));
             double mean = calculateMean(resultList);
             responseDto.setMean(mean);

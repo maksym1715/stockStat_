@@ -1,6 +1,7 @@
 package team606.stockStat.communication.service;
 
 import java.time.LocalDate;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 
@@ -12,11 +13,13 @@ import team606.stockStat.communication.dto.IncomeWithApy;
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodRequest;
 import team606.stockStat.communication.dto.ResponseDto;
+import team606.stockStat.communication.dto.TimeHistoryData;
 import team606.stockStat.communication.parser.CsvData;
+import team606.stockStat.communication.parser.SourceData;
 
 public interface IndexService {
 
-	List<CsvData> getTimeHistoryForIndex(String indexName);
+	TimeHistoryData getTimeHistoryForIndex(String indexName);
 
 	List<String> getAllIndexes();
 

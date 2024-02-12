@@ -20,7 +20,9 @@ import team606.stockStat.communication.dto.IncomeWithApy;
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodRequest;
 import team606.stockStat.communication.dto.ResponseDto;
+import team606.stockStat.communication.dto.TimeHistoryData;
 import team606.stockStat.communication.parser.CsvData;
+import team606.stockStat.communication.parser.SourceData;
 import team606.stockStat.communication.parser.UploadInfo;
 
 import static java.util.stream.Collectors.toList;
@@ -142,21 +144,24 @@ public class IndexServiceImpl implements IndexService {
         double meanOfDiffs = sum / numbers.size();
         return Math.sqrt(meanOfDiffs);
     }
-
-
-    @Override
-    public List<CsvData> getTimeHistoryForIndex(String indexName) {
+ 
+    
+    
+    public TimeHistoryData getTimeHistoryForIndex(String indexName) {
         List<UploadInfo> allBySource = uploadInfoRepository.findAllBySource(indexName);
-        Collections.sort(allBySource, new Comparator<UploadInfo>() {
-            @Override
-            public int compare(UploadInfo a1, UploadInfo a2) {
-                return a1.getDate().compareTo(a2.getDate());
-            }
 
+        Collections.sort(allBySource, Comparator.comparing(UploadInfo::getDate));
 
-        });
-        List<UploadInfo> list = Arrays.asList(allBySource.get(0), allBySource.get(allBySource.size() - 1));
-        return csvDataRepository.findAllByUploadInfoIdIn(list);
+        UploadInfo firstUploadInfo = allBySource.get(0);
+        UploadInfo lastUploadInfo = allBySource.get(allBySource.size() - 1);
+
+        TimeHistoryData timeHistoryData = new TimeHistoryData();
+        timeHistoryData.setSource(indexName);
+        timeHistoryData.setFromData(firstUploadInfo.getDate().toString());
+        timeHistoryData.setToData(lastUploadInfo.getDate().toString());
+        
+
+        return timeHistoryData;
     }
 
     @Override

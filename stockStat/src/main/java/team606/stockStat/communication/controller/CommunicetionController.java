@@ -1,6 +1,7 @@
 package team606.stockStat.communication.controller;
 
 import java.io.IOException;
+import java.util.Date;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -28,8 +29,10 @@ import team606.stockStat.communication.dto.IncomeWithApy;
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodRequest;
 import team606.stockStat.communication.dto.ResponseDto;
+import team606.stockStat.communication.dto.TimeHistoryData;
 import team606.stockStat.communication.parser.CsvData;
 import team606.stockStat.communication.parser.CsvParser;
+import team606.stockStat.communication.parser.SourceData;
 import team606.stockStat.communication.service.IndexService;
 import team606.stockStat.communication.service.PeriodService;
 
@@ -51,12 +54,11 @@ public class CommunicetionController {
 			@RequestParam String toDate) throws IOException, CsvException, java.text.ParseException {
 		return csvParser.parseCsvFile(file, fromDate, toDate);
 	}
-	
-	 @GetMapping("/parser/{indexName}")
-	    public ResponseEntity<List<CsvData>> getTimeHistoryForIndex(@PathVariable String indexName) {
-	        List<CsvData> response = indexService.getTimeHistoryForIndex(indexName);
-	        return ResponseEntity.ok(response);
-	    }
+	@GetMapping("/index/{indexName}")
+    public ResponseEntity<TimeHistoryData> getTimeHistoryForIndex(@PathVariable String indexName) {
+		TimeHistoryData response = indexService.getTimeHistoryForIndex(indexName);
+        return ResponseEntity.ok(response);
+    }
     
 	 @GetMapping("/index")
 	    public ResponseEntity<List<String>> getAllIndexes() {

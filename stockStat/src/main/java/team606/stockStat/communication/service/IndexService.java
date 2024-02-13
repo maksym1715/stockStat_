@@ -36,6 +36,8 @@ public interface IndexService {
 	
 	String calculateCorrelation(CorrelationRequest correlationRequest);
 
+	Boolean deleteAllHistoryForCompany(String indexName);
+
 	   
 
 }

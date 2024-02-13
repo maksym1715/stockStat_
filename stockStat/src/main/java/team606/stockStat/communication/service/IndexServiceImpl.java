@@ -8,8 +8,13 @@ import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
+import javax.transaction.Transactional;
+
 import org.springframework.stereotype.Service;
+
 import org.springframework.web.client.RestTemplate;
+
+import lombok.extern.slf4j.Slf4j;
 import team606.stockStat.communication.dao.CsvDataRepository;
 import team606.stockStat.communication.dao.TimePeriods;
 import team606.stockStat.communication.dao.UploadInfoRepository;
@@ -275,5 +280,35 @@ public class IndexServiceImpl implements IndexService {
 
     }
 
+    @Transactional
+	public Boolean deleteAllHistoryForCompany(String indexName) {
+    	try {
+            List<UploadInfo> uploadInfoList = uploadInfoRepository.findAllBySource(indexName);
 
-}
+            if (uploadInfoList.isEmpty()) {
+                System.out.println("No data found for deletion for index: " + indexName);
+                return false;
+            }
+
+            String sourceToDelete = uploadInfoList.get(0).getSource();
+
+            if (sourceToDelete == null) {
+                System.out.println("Source is null for index: " + indexName);
+                return false;
+            }
+
+            csvDataRepository.deleteAllByUploadInfoId_Source(sourceToDelete);
+            uploadInfoRepository.deleteAllBySource(sourceToDelete);
+
+            System.out.println("Successfully deleted history for index: " + indexName);
+            return true;
+        } catch (Exception e) {
+            System.out.println("Error deleting history for index: " + indexName);
+            e.printStackTrace();
+            return false;
+        }
+    }
+	}
+
+
+

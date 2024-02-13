@@ -11,7 +11,7 @@ import java.util.List;
 public interface CsvDataRepository extends JpaRepository<CsvData, Long> {
     List<CsvData> findAllByUploadInfoIdIn(List<UploadInfo>ids);
 
-	
+    void deleteAllByUploadInfoId_Source(String source);
 
 	
 	

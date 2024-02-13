@@ -123,6 +123,12 @@ public class CommunicetionController {
     public String calculateCorrelation(@RequestBody CorrelationRequest correlationRequest) {
         return indexService.calculateCorrelation(correlationRequest);
     }
+    
+    @DeleteMapping("/index/{indexName}")
+    public ResponseEntity<Boolean> deleteAllHistoryForCompany(@PathVariable String indexName) {
+        Boolean response = indexService.deleteAllHistoryForCompany(indexName);
+        return ResponseEntity.ok(response);
+    }
 
    
 

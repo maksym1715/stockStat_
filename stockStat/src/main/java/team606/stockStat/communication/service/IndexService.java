@@ -28,7 +28,7 @@ public interface IndexService {
 
 	List<PeriodData> getAllValueCloseBetween(PeriodRequest request);
 
-	List<PeriodData> calculateSumPackage(CalculateSumPackageRequest request);
+	
 
 	List<IncomeWithApy> calculateIncomeWithApy(CalculateIncomeWithApyRequest request);
 
@@ -37,6 +37,9 @@ public interface IndexService {
 	String calculateCorrelation(CorrelationRequest correlationRequest);
 
 	Boolean deleteAllHistoryForCompany(String indexName);
+
+	List<ResponseDto> calculateSumPackage(List<String> indexes, List<Integer> amounts, LocalDate from, LocalDate to,
+			TimePeriods timePeriods, Long quantity);
 
 	   
 

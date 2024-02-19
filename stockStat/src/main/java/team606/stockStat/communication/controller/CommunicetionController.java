@@ -1,8 +1,10 @@
 package team606.stockStat.communication.controller;
 
 import java.io.IOException;
+import java.time.LocalDate;
 import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -103,8 +105,32 @@ public class CommunicetionController {
     
     @PostMapping("/index/sum")
     public ResponseEntity<List<PeriodData>> calculateSumPackage(@RequestBody CalculateSumPackageRequest request) {
-        List<PeriodData> result = indexService.calculateSumPackage(request);
-        return ResponseEntity.ok(result);
+        List<ResponseDto> responseDtos = indexService.calculateSumPackage(
+                request.getIndexs(),
+                request.getAmount(),
+                LocalDate.parse(request.getFrom()),
+                LocalDate.parse(request.getTo()),
+                TimePeriods.valueOf(request.getType()),
+                Long.valueOf(request.getQuantity())
+        );
+
+        List<PeriodData> periodData = responseDtos.stream()
+                .map(responseDto -> {
+                    PeriodData periodDataItem = new PeriodData();
+                    periodDataItem.setFrom(responseDto.getFrom());
+                    periodDataItem.setTo(responseDto.getTo());
+                    periodDataItem.setSource(responseDto.getSource());
+                    periodDataItem.setType(responseDto.getType());
+                    periodDataItem.setMax(responseDto.getMax());
+                    periodDataItem.setMean(responseDto.getMean());
+                    periodDataItem.setMedian(responseDto.getMedian());
+                    periodDataItem.setMin(responseDto.getMin());
+                    periodDataItem.setStd(responseDto.getStd());
+                    return periodDataItem;
+                })
+                .collect(Collectors.toList());
+
+        return ResponseEntity.ok(periodData);
     }
 
     @PostMapping("/index/apy")

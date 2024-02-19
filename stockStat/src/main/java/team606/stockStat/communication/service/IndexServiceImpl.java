@@ -101,6 +101,9 @@ public class IndexServiceImpl implements IndexService {
     }
 
     public static double findMin(List<Double> numbers) {
+    	if (numbers.isEmpty()) {
+            return 0.0; // или другое значение по умолчанию, в зависимости от ваших требований
+        }
         // Initialize min with the first element of the array
         double min = numbers.get(0);
         // Iterate through the array
@@ -114,6 +117,9 @@ public class IndexServiceImpl implements IndexService {
 
     public static double findMax(List<Double> numbers) {
         // Initialize max with the first element of the array
+    	 if (numbers.isEmpty()) {
+    	        return 0.0; 
+    	    }
         double max = numbers.get(0);
         // Iterate through the array
         for (int i = 1; i < numbers.size(); i++) {
@@ -124,6 +130,10 @@ public class IndexServiceImpl implements IndexService {
         return max;
     }
     public static double calculateMean(List<Double> numbers) {
+    	if (numbers.isEmpty()) {
+            return 0.0; // или другое значение по умолчанию, в зависимости от ваших требований
+        }
+    	
         double sum = 0.0;
         for (Double num : numbers) {
             sum += num;
@@ -132,6 +142,10 @@ public class IndexServiceImpl implements IndexService {
     }
 
     private Double calculateMedian(List<Double> values) {
+    	if (values.isEmpty()) {
+            return 0.0;
+    	}
+
         Collections.sort(values);
         int size = values.size();
         if (size % 2 == 0) {
@@ -142,6 +156,10 @@ public class IndexServiceImpl implements IndexService {
     }
 
     public static double calculateStandardDeviation(List<Double> numbers, double mean) {
+    	if (numbers.isEmpty() || numbers.size() == 1) {
+            return 0.0; // или другое значение по умолчанию, в зависимости от ваших требований
+        }
+    	
         double sum = 0.0;
         for (Double num : numbers) {
             sum += Math.pow(num - mean, 2);
@@ -206,55 +224,89 @@ public class IndexServiceImpl implements IndexService {
     }
 
     @Override
-    public List<PeriodData> calculateSumPackage(CalculateSumPackageRequest request) {
-        List<UploadInfo> listUploadInfo = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(
-                request.getIndexs(), LocalDate.parse(request.getFrom()), LocalDate.parse(request.getTo()));
+    public List<ResponseDto> calculateSumPackage(List<String> indexes, List<Integer> amounts, LocalDate from, LocalDate to, TimePeriods timePeriods, Long quantity) {
+        to = to.plusDays(1);
+        List<UploadInfo> listUploadInfo = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(indexes, from, to);
+        Comparator<UploadInfo> comparator = Comparator.comparing(UploadInfo::getDate);
 
-        Map<String, List<UploadInfo>> allBySource = listUploadInfo.stream()
+        listUploadInfo.sort(comparator);
+        Map<String, List<UploadInfo>> allBySource = listUploadInfo
+                .stream()
                 .collect(Collectors.groupingBy(UploadInfo::getSource));
 
-        List<PeriodData> result = new ArrayList<>();
-//
-//        for (Map.Entry<String, List<UploadInfo>> entry : allBySource.entrySet()) {
-//            List<UploadInfo> uploadInfos = entry.getValue();
-//
-//            // Collecting all CsvData for the given source and time period
-//            List<CsvData> csvDataList = csvDataRepository.findAllByUploadInfoIdIn(uploadInfos);
-//
-//            // Creating a map with dates as keys and corresponding CsvData as values
-//            Map<LocalDate, CsvData> allByUploadInfoIdIn = csvDataList.stream()
-//                    .filter(csvData -> csvData.getUploadInfoId() != null)
-//                    .collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), Function.identity(),
-//                            BinaryOperator.maxBy(Comparator.comparing(csvData -> csvData.getUploadInfoId().getDate()))));
-//
-//            for (Map.Entry<LocalDate, CsvData> objectObjectEntry : allByUploadInfoIdIn.entrySet()) {
-//                LocalDate firstDate = objectObjectEntry.getKey();
-//                LocalDate secondDate = TimePeriods.getAnalyze(TimePeriods.valueOf(request.getType()), firstDate, Long.valueOf(request.getQuantity()));
-//
-//                List<Double> closingPrices = allByUploadInfoIdIn.values().stream()
-//                        .map(csvData -> csvData.getClose())
-//                        .collect(Collectors.toList());
-//
-//                // Summing up the closing prices for each stock in the package
-//                double sum = IntStream.range(0, request.getIndexs().size())
-//                        .mapToDouble(i -> request.getAmount().get(i) * closingPrices.get(i))
-//                        .sum();
-//
-//                // Creating PeriodData with calculated sum and other statistics
-//                PeriodData periodData = new PeriodData();
-//                periodData.setFrom(firstDate);
-//                periodData.setTo(secondDate);
-//                periodData.setSource(entry.getKey());
-//                periodData.setType(request.getQuantity() + " " + request.getType().toLowerCase());
-//                periodData.setMean(sum);  // Assuming mean is the sum in this context
-//                periodData.setMin(Collections.min(closingPrices) * request.getAmount().get(0));  // Assuming min is the min of the first stock
-//                periodData.setMax(Collections.max(closingPrices) * request.getAmount().get(0));  // Assuming max is the max of the first stock
-//                periodData.setStd(calculateStandardDeviation(closingPrices));  // Assuming std is the standard deviation of closing prices
-//
-//                result.add(periodData);
-//            }
-//        }
+        List<ResponseDto> result = new ArrayList<>();
+
+        for (Map.Entry<String, List<UploadInfo>> entry : allBySource.entrySet()) {
+            Map<LocalDate, CsvData> allByUploadInfoIdIn = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue())
+                    .stream()
+                    .filter(csvData -> csvData.getUploadInfoId() != null)
+                    .collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), Function.identity(),
+                            BinaryOperator.maxBy(Comparator.comparing(csvData -> csvData.getUploadInfoId().getDate()))));
+
+            TreeMap<LocalDate, CsvData> newMap = new TreeMap<>(allByUploadInfoIdIn);
+            List<Double> resultList = new LinkedList<>();
+            for (Map.Entry<LocalDate, CsvData> objectObjectEntry : newMap.entrySet()) {
+                LocalDate firstDate = objectObjectEntry.getValue().getUploadInfoId().getDate();
+                LocalDate secondDate = TimePeriods.getAnalyze(timePeriods, firstDate, quantity);
+                CsvData dataFirstDate = objectObjectEntry.getValue();
+                CsvData dataSecondDate = newMap.get(secondDate);
+                if (dataSecondDate == null) {
+                    break;
+                }
+
+                double max = dataSecondDate.getHigh() - dataFirstDate.getLow();
+                double min = dataSecondDate.getLow() - dataFirstDate.getHigh();
+                resultList.add(max);
+                resultList.add(min);
+            }
+            ResponseDto responseDto = new ResponseDto();
+            responseDto.setFrom(from);
+            responseDto.setTo(to);
+            responseDto.setSource(entry.getKey());
+            responseDto.setType(quantity + " " + timePeriods.toString());
+            responseDto.setMedian(calculateMedian(resultList));
+            double mean = calculateMean(resultList);
+            responseDto.setMean(mean);
+            responseDto.setStd(calculateStandardDeviation(resultList, mean));
+            responseDto.setMax(findMax(resultList));
+            responseDto.setMin(findMin(resultList));
+            result.add(responseDto);
+        }
+
+      
+        ResponseDto totalSum = calculateTotalSum(result);
+        result.add(totalSum);
+
         return result;
+    }
+    
+    private ResponseDto calculateTotalSum(List<ResponseDto> result) {
+        ResponseDto totalSum = new ResponseDto();
+        List<Double> maxList = new ArrayList<>();
+        List<Double> meanList = new ArrayList<>();
+        List<Double> medianList = new ArrayList<>();
+        List<Double> minList = new ArrayList<>();
+        List<Double> stdList = new ArrayList<>();
+
+        for (ResponseDto dto : result) {
+            maxList.add(dto.getMax());
+            meanList.add(dto.getMean());
+            medianList.add(dto.getMedian());
+            minList.add(dto.getMin());
+            stdList.add(dto.getStd());
+        }
+
+        totalSum.setFrom(result.get(0).getFrom());
+        totalSum.setTo(result.get(0).getTo());
+        totalSum.setSource("Package for: " + result.stream().map(ResponseDto::getSource).collect(Collectors.joining(", ")));
+        totalSum.setType(result.get(0).getType());
+        totalSum.setMax(maxList.stream().mapToDouble(Double::doubleValue).sum());
+        totalSum.setMean(meanList.stream().mapToDouble(Double::doubleValue).sum());
+        totalSum.setMedian(medianList.stream().mapToDouble(Double::doubleValue).sum());
+        totalSum.setMin(minList.stream().mapToDouble(Double::doubleValue).sum());
+        totalSum.setStd(stdList.stream().mapToDouble(Double::doubleValue).sum());
+
+        return totalSum;
     }
 
     @Override

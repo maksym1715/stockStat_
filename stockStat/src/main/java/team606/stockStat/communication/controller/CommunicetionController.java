@@ -104,7 +104,7 @@ public class CommunicetionController {
     }
     
     @PostMapping("/index/sum")
-    public ResponseEntity<List<PeriodData>> calculateSumPackage(@RequestBody CalculateSumPackageRequest request) {
+    public ResponseEntity<PeriodData> calculateSumPackage(@RequestBody CalculateSumPackageRequest request) {
         List<ResponseDto> responseDtos = indexService.calculateSumPackage(
                 request.getIndexs(),
                 request.getAmount(),
@@ -114,21 +114,19 @@ public class CommunicetionController {
                 Long.valueOf(request.getQuantity())
         );
 
-        List<PeriodData> periodData = responseDtos.stream()
-                .map(responseDto -> {
-                    PeriodData periodDataItem = new PeriodData();
-                    periodDataItem.setFrom(responseDto.getFrom());
-                    periodDataItem.setTo(responseDto.getTo());
-                    periodDataItem.setSource(responseDto.getSource());
-                    periodDataItem.setType(responseDto.getType());
-                    periodDataItem.setMax(responseDto.getMax());
-                    periodDataItem.setMean(responseDto.getMean());
-                    periodDataItem.setMedian(responseDto.getMedian());
-                    periodDataItem.setMin(responseDto.getMin());
-                    periodDataItem.setStd(responseDto.getStd());
-                    return periodDataItem;
-                })
-                .collect(Collectors.toList());
+        // Получаем последний элемент из списка
+        ResponseDto lastResult = responseDtos.get(responseDtos.size() - 1);
+
+        PeriodData periodData = new PeriodData();
+        periodData.setFrom(lastResult.getFrom());
+        periodData.setTo(lastResult.getTo());
+        periodData.setSource("Package for: " + String.join(", ", request.getIndexs()));
+        periodData.setType(lastResult.getType());
+        periodData.setMax(lastResult.getMax());
+        periodData.setMean(lastResult.getMean());
+        periodData.setMedian(lastResult.getMedian());
+        periodData.setMin(lastResult.getMin());
+        periodData.setStd(lastResult.getStd());
 
         return ResponseEntity.ok(periodData);
     }

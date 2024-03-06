@@ -29,6 +29,7 @@ import team606.stockStat.communication.dto.CalculateSumPackageRequest;
 import team606.stockStat.communication.dto.CorrelationRequest;
 import team606.stockStat.communication.dto.IncomeWithApy;
 import team606.stockStat.communication.dto.PeriodData;
+import team606.stockStat.communication.dto.PeriodDataCloseBetween;
 import team606.stockStat.communication.dto.PeriodRequest;
 import team606.stockStat.communication.dto.ResponseDto;
 import team606.stockStat.communication.dto.TimeHistoryData;
@@ -98,8 +99,14 @@ public class CommunicetionController {
     }
     
     @PostMapping("/data")
-    public ResponseEntity<List<PeriodData>> getAllValueCloseBetween(@RequestBody PeriodRequest request) {
-        List<PeriodData> periodData = indexService.getAllValueCloseBetween(request);
+    public ResponseEntity<List<PeriodDataCloseBetween>> getAllValueCloseBetween(@RequestBody PeriodRequest request) {
+        List<PeriodDataCloseBetween> periodData = indexService.getAllValueCloseBetween(
+        		TimePeriods.valueOf(request.getType()),
+                request.getIndexes(),
+                request.getFrom(),
+                request.getTo(),
+                Long.valueOf(request.getQuantity())
+        );
         return ResponseEntity.ok(periodData);
     }
     

@@ -11,6 +11,7 @@ import team606.stockStat.communication.dto.CalculateSumPackageRequest;
 import team606.stockStat.communication.dto.CorrelationRequest;
 import team606.stockStat.communication.dto.IncomeWithApy;
 import team606.stockStat.communication.dto.PeriodData;
+import team606.stockStat.communication.dto.PeriodDataCloseBetween;
 import team606.stockStat.communication.dto.PeriodRequest;
 import team606.stockStat.communication.dto.ResponseDto;
 import team606.stockStat.communication.dto.TimeHistoryData;
@@ -26,7 +27,8 @@ public interface IndexService {
 	List<ResponseDto> getAllDataBySources(TimePeriods timePeriods, List<String> source, LocalDate from, LocalDate to,
 			Long quantity);
 
-	List<PeriodData> getAllValueCloseBetween(PeriodRequest request);
+	List<PeriodDataCloseBetween> getAllValueCloseBetween(TimePeriods timePeriods, List<String> source, LocalDate from, LocalDate to,
+			Long quantity);
 
 	
 
@@ -40,6 +42,9 @@ public interface IndexService {
 
 	List<ResponseDto> calculateSumPackage(List<String> indexes, List<Integer> amounts, LocalDate from, LocalDate to,
 			TimePeriods timePeriods, Long quantity);
+
+	
+	
 
 	   
 

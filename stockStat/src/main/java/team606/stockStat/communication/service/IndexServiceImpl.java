@@ -23,6 +23,7 @@ import team606.stockStat.communication.dto.CalculateSumPackageRequest;
 import team606.stockStat.communication.dto.CorrelationRequest;
 import team606.stockStat.communication.dto.IncomeWithApy;
 import team606.stockStat.communication.dto.PeriodData;
+import team606.stockStat.communication.dto.PeriodDataCloseBetween;
 import team606.stockStat.communication.dto.PeriodRequest;
 import team606.stockStat.communication.dto.ResponseDto;
 import team606.stockStat.communication.dto.TimeHistoryData;
@@ -197,35 +198,82 @@ public class IndexServiceImpl implements IndexService {
 
     }
 
-    public List<PeriodData> getAllValueCloseBetween(PeriodRequest request) {
-        List<ResponseDto> responseDtos = getAllDataBySources(
-                TimePeriods.valueOf(request.getType()),
-                request.getIndexes(),
-                request.getFrom(),
-                request.getTo(),
-                Long.valueOf(request.getQuantity())
-        );
+    @Override
+    public List<PeriodDataCloseBetween> getAllValueCloseBetween(TimePeriods timePeriods, List<String> source, LocalDate from, LocalDate to,
+            Long quantity) {
+        to = to.plusDays(1);
+        List<UploadInfo> listUploadInfo = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(source, from, to);
+        Comparator<UploadInfo> comparator = Comparator.comparing(UploadInfo::getDate);
 
-        return responseDtos.stream()
-                .map(responseDto -> {
-                    PeriodData periodDataItem = new PeriodData();
-                    periodDataItem.setFrom(responseDto.getFrom());
-                    periodDataItem.setTo(responseDto.getTo());
-                    periodDataItem.setSource(responseDto.getSource());
-                    periodDataItem.setType(responseDto.getType());
-                    periodDataItem.setMax(responseDto.getMax());
-                    periodDataItem.setMean(responseDto.getMean());
-                    periodDataItem.setMedian(responseDto.getMedian());
-                    periodDataItem.setMin(responseDto.getMin());
-                    periodDataItem.setStd(responseDto.getStd());
-                    return periodDataItem;
-                })
-                .collect(Collectors.toList());
+        listUploadInfo.sort(comparator);
+        Map<String, List<UploadInfo>> allBySource = listUploadInfo
+                .stream()
+                .collect(Collectors.groupingBy(UploadInfo::getSource));
+
+        List<PeriodDataCloseBetween> result = new ArrayList<>();
+
+        for (Map.Entry<String, List<UploadInfo>> entry : allBySource.entrySet()) {
+            Map<LocalDate, CsvData> allByUploadInfoIdIn = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue())
+                    .stream()
+                    .filter(csvData -> csvData.getUploadInfoId() != null)
+                    .collect(Collectors.toMap(
+                            a -> a.getUploadInfoId().getDate(),
+                            Function.identity(),
+                            BinaryOperator.maxBy(Comparator.comparing(csvData -> csvData.getUploadInfoId().getDate()))
+                    ));
+
+            TreeMap<LocalDate, CsvData> newMap = new TreeMap<>(allByUploadInfoIdIn);
+            List<Double> resultList = new LinkedList<>();
+
+            for (Map.Entry<LocalDate, CsvData> objectObjectEntry : newMap.entrySet()) {
+                LocalDate minDate = objectObjectEntry.getValue().getUploadInfoId().getDate();
+                LocalDate maxDate = TimePeriods.getAnalyze(
+                        timePeriods,
+                        minDate,
+                        quantity
+                );
+
+                CsvData dataMinDate = objectObjectEntry.getValue();
+                CsvData dataMaxDate = newMap.get(maxDate);
+
+                if (dataMaxDate == null) {
+                    break;
+                }
+
+                double startClose = dataMinDate.getLow();
+                double endClose = dataMaxDate.getHigh();
+                double valueClose = endClose - startClose;
+                resultList.add(valueClose);
+
+                List<Double> listClose = new ArrayList<>();
+                newMap.subMap(minDate, true, maxDate, true).forEach((date, csvData) ->
+                        listClose.add(csvData.getClose())
+                );
+
+                PeriodDataCloseBetween periodDataCloseBetween = new PeriodDataCloseBetween();
+                periodDataCloseBetween.setFrom(minDate.toString());
+                periodDataCloseBetween.setTo(maxDate.toString());
+                periodDataCloseBetween.setSource(entry.getKey());
+                periodDataCloseBetween.setType(quantity + " " + timePeriods.toString());
+                periodDataCloseBetween.setMinDate(minDate.toString());
+                periodDataCloseBetween.setMaxDate(maxDate.toString());
+                periodDataCloseBetween.setStartClose(startClose);
+                periodDataCloseBetween.setEndClose(endClose);
+                periodDataCloseBetween.setValueClose(valueClose);
+                periodDataCloseBetween.setListClose(listClose);
+
+                result.add(periodDataCloseBetween);
+            }
+        }
+        return result;
     }
+        
+    
 
     @Override
     public List<ResponseDto> calculateSumPackage(List<String> indexes, List<Integer> amounts, LocalDate from, LocalDate to, TimePeriods timePeriods, Long quantity) {
-        to = to.plusDays(1);
+       
+    	to = to.plusDays(1);
         List<UploadInfo> listUploadInfo = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(indexes, from, to);
         Comparator<UploadInfo> comparator = Comparator.comparing(UploadInfo::getDate);
 
@@ -237,6 +285,8 @@ public class IndexServiceImpl implements IndexService {
         List<ResponseDto> result = new ArrayList<>();
 
         for (Map.Entry<String, List<UploadInfo>> entry : allBySource.entrySet()) {
+        	String source = entry.getKey();
+            int index = indexes.indexOf(source);
             Map<LocalDate, CsvData> allByUploadInfoIdIn = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue())
                     .stream()
                     .filter(csvData -> csvData.getUploadInfoId() != null)
@@ -254,8 +304,9 @@ public class IndexServiceImpl implements IndexService {
                     break;
                 }
 
-                double max = dataSecondDate.getHigh() - dataFirstDate.getLow();
-                double min = dataSecondDate.getLow() - dataFirstDate.getHigh();
+                double max = (dataSecondDate.getHigh() * amounts.get(index)) - (dataFirstDate.getLow() * amounts.get(index));
+                double min = (dataSecondDate.getLow() * amounts.get(index)) - (dataFirstDate.getHigh() * amounts.get(index));
+                
                 resultList.add(max);
                 resultList.add(min);
             }
@@ -303,8 +354,9 @@ public class IndexServiceImpl implements IndexService {
         totalSum.setMax(maxList.stream().mapToDouble(Double::doubleValue).sum());
         totalSum.setMean(meanList.stream().mapToDouble(Double::doubleValue).sum());
         totalSum.setMedian(medianList.stream().mapToDouble(Double::doubleValue).sum());
+        totalSum.setMax(maxList.stream().mapToDouble(Double::doubleValue).sum());
         totalSum.setMin(minList.stream().mapToDouble(Double::doubleValue).sum());
-        totalSum.setStd(stdList.stream().mapToDouble(Double::doubleValue).sum());
+        totalSum.setStd(stdList.stream().filter(Objects::nonNull).mapToDouble(Double::doubleValue).sum());
 
         return totalSum;
     }
@@ -360,6 +412,8 @@ public class IndexServiceImpl implements IndexService {
             return false;
         }
     }
+
+	
 	}
 
 

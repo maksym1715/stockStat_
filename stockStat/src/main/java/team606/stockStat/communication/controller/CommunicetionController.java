@@ -140,7 +140,7 @@ public class CommunicetionController {
 
     @PostMapping("/index/apy")
     public ResponseEntity<List<IncomeWithApy>> calculateIncomeWithApy(@RequestBody CalculateIncomeWithApyRequest request) {
-        List<IncomeWithApy> result = indexService.calculateIncomeWithApy(request);
+    	 List<IncomeWithApy> result = indexService.calculateIncomeWithApy(request);
         return ResponseEntity.ok(result);
     }
 

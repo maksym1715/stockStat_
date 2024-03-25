@@ -3,20 +3,21 @@ package team606.stockStat.communication.dao;
 import java.time.LocalDate;
 
 public enum TimePeriods {
-    days, weeks, months, decades, years, centuries;
+	 DAYS, WEEKS, MONTHS, DECADES, YEARS, CENTURIES;
 
     public static LocalDate getAnalyze(TimePeriods value, LocalDate to, Long quantity) {
         switch (value) {
-            case days:
+            case DAYS:
                 return to.plusDays(quantity);
-            case weeks:
+            case WEEKS:
                 return to.plusWeeks(quantity);
-            case months:
+            case MONTHS:
                 return to.plusMonths(quantity);
-            case decades:return to.plusDays(10*quantity);
-            case years:
+            case DECADES:
+                return to.plusDays(10*quantity);
+            case YEARS:
                 return to.plusYears(quantity);
-            case centuries:
+            case CENTURIES:
                 return to.plusYears(100);
         }
 

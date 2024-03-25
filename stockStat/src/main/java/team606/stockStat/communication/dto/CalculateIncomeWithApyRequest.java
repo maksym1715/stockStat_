@@ -8,7 +8,7 @@ import lombok.Data;
 public class CalculateIncomeWithApyRequest {
 	private List<String> indexs;
     private String type;
-    private int quantity;
+    private Long quantity;
     private String from;
     private String to;
 }

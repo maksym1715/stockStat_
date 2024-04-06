@@ -350,7 +350,13 @@ public class IndexServiceImpl implements IndexService {
 
 	@Override
 	public List<IncomeWithApy> calculateIncomeWithApy(CalculateIncomeWithApyRequest request) {
-		
+		 if (request == null) {
+		        throw new IllegalArgumentException("Request must not be null");
+		    }
+		    if (request.getIndexs() == null || request.getType() == null || request.getFrom() == null || request.getTo() == null || request.getQuantity() == null) {
+		        throw new IllegalArgumentException("Request parameters must not be null");
+		    }
+
 		List<IncomeWithApy> result = new ArrayList<>();
 
 		// Extract parameters from the request
@@ -359,6 +365,8 @@ public class IndexServiceImpl implements IndexService {
 	    LocalDate from = LocalDate.parse(request.getFrom());
 	    LocalDate to = LocalDate.parse(request.getTo());
 	    Long quantity = request.getQuantity();
+	    
+	    to = to.plusDays(1);
 
 	 // Retrieve data for indexes and period from the repository
 	    List<ResponseDto> data = getAllDataBySources(type, indexs, from, to, quantity);
@@ -385,6 +393,8 @@ public class IndexServiceImpl implements IndexService {
 
 	    return result;
 	}
+	
+	
 
 	// Method to calculate APY (Annual Percentage Yield)
 	private double calculateApy(double income, double mean, LocalDate from, LocalDate to) {

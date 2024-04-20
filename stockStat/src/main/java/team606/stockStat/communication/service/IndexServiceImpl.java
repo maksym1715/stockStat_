@@ -23,6 +23,7 @@ import team606.stockStat.communication.dto.CalculateIncomeWithApyRequest;
 import team606.stockStat.communication.dto.CalculateSumPackageRequest;
 import team606.stockStat.communication.dto.CorrelationRequest;
 import team606.stockStat.communication.dto.IncomeWithApy;
+import team606.stockStat.communication.dto.IncomeWithIrr;
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodDataCloseBetween;
 import team606.stockStat.communication.dto.PeriodRequest;
@@ -350,16 +351,17 @@ public class IndexServiceImpl implements IndexService {
 
 	@Override
 	public List<IncomeWithApy> calculateIncomeWithApy(CalculateIncomeWithApyRequest request) {
-		 if (request == null) {
-		        throw new IllegalArgumentException("Request must not be null");
-		    }
-		    if (request.getIndexs() == null || request.getType() == null || request.getFrom() == null || request.getTo() == null || request.getQuantity() == null) {
-		        throw new IllegalArgumentException("Request parameters must not be null");
-		    }
+	    // Check if the request and its parameters are present
+	    if (request == null) {
+	        throw new IllegalArgumentException("Request must not be null");
+	    }
+	    if (request.getIndexs() == null || request.getType() == null || request.getFrom() == null || request.getTo() == null || request.getQuantity() == null) {
+	        throw new IllegalArgumentException("Request parameters must not be null");
+	    }
 
-		List<IncomeWithApy> result = new ArrayList<>();
+	    List<IncomeWithApy> result = new ArrayList<>();
 
-		// Extract parameters from the request
+	    // Extract parameters from the request
 	    List<String> indexs = request.getIndexs();
 	    TimePeriods type = TimePeriods.valueOf(request.getType().toUpperCase());
 	    LocalDate from = LocalDate.parse(request.getFrom());
@@ -368,30 +370,39 @@ public class IndexServiceImpl implements IndexService {
 	    
 	    to = to.plusDays(1);
 
-	 // Retrieve data for indexes and period from the repository
+	    // Get data for indexes and period from the repository
 	    List<ResponseDto> data = getAllDataBySources(type, indexs, from, to, quantity);
 
-	 // Iterate over each item and calculate income with APY
-	    for (ResponseDto dto : data) {
-	    	// Calculate income and APY
-	        double income = dto.getMax() - dto.getMin();
-	        double apy = calculateApy(income, dto.getMean(), from, to);
+	    LocalDate toDate = to; // Create a copy of the 'to' variable
+	    ResponseDto minDto = Collections.min(data, Comparator.comparingDouble(dto -> calculateApy(dto.getMax() - dto.getMin(), dto.getMean(), from, toDate)));
+	    ResponseDto maxDto = Collections.max(data, Comparator.comparingDouble(dto -> calculateApy(dto.getMax() - dto.getMin(), dto.getMean(), from, toDate)));
 
-	     // Create an IncomeWithApy object and add it to the result
-	        IncomeWithApy incomeWithApy = new IncomeWithApy();
-	        incomeWithApy.setSource(dto.getSource());
-	        incomeWithApy.setHistoryFrom(dto.getFrom());
-	        incomeWithApy.setHistoryTo(dto.getTo());
-	        incomeWithApy.setType(dto.getType());
-	        incomeWithApy.setFrom(from.toString());
-	        incomeWithApy.setTo(to.toString());
-	        incomeWithApy.setIncome(income);
-	        incomeWithApy.setApy(apy);
+	    // Create IncomeWithApy objects for minIncome and maxIncome
+	    IncomeWithApy minIncome = createIncomeWithApy(minDto, from, to);
+	    IncomeWithApy maxIncome = createIncomeWithApy(maxDto, from, to);
 
-	        result.add(incomeWithApy);
-	    }
+	    // Add minIncome and maxIncome to the result
+	    result.add(minIncome);
+	    result.add(maxIncome);
 
+	    // Return the result
 	    return result;
+	}
+
+	//  IncomeWithApy
+	private IncomeWithApy createIncomeWithApy(ResponseDto dto, LocalDate from, LocalDate to) {
+	    IncomeWithApy incomeWithApy = new IncomeWithApy();
+	    incomeWithApy.setSource(dto.getSource());
+	    incomeWithApy.setHistoryFrom(dto.getFrom());
+	    incomeWithApy.setHistoryTo(dto.getTo());
+	    incomeWithApy.setType(dto.getType());
+	    incomeWithApy.setFrom(from.toString());
+	    incomeWithApy.setTo(to.toString());
+	    double income = dto.getMax() - dto.getMin();
+	    incomeWithApy.setIncome(income);
+	    double apy = calculateApy(income, dto.getMean(), from, to);
+	    incomeWithApy.setApy(apy);
+	    return incomeWithApy;
 	}
 	
 	
@@ -412,11 +423,64 @@ public class IndexServiceImpl implements IndexService {
 	    return apy;
 	}
 
+	
+	
+	
+	
 	@Override
 	public List<IncomeWithApy> calculateIncomeWithApyAllDate(CalculateIncomeWithApyRequest request) {
+	    if (request == null) {
+	        throw new IllegalArgumentException("Request must not be null");
+	    }
+	    if (request.getIndexs() == null || request.getType() == null || request.getQuantity() == null) {
+	        throw new IllegalArgumentException("Request parameters must not be null");
+	    }
+
+	    List<IncomeWithApy> result = new ArrayList<>();
+
+	    // Extract parameters from the request
+	    List<String> indexs = request.getIndexs();
+	    TimePeriods type = TimePeriods.valueOf(request.getType().toUpperCase());
+	    Long quantity = request.getQuantity();
+
+	    // Get the current date
+	    LocalDate currentDate = LocalDate.now();
+
+	    // Retrieve data for indexes and period from the repository
+	    List<ResponseDto> data = getAllDataBySources(type, indexs, null, currentDate, quantity);
+
+	    // Iterate over each item and calculate income with APY
+	    for (ResponseDto dto : data) {
+	        // Calculate income and APY
+	        double income = dto.getMax() - dto.getMin();
+	        double apy = calculateApy(income, dto.getMean(), null, currentDate);
+
+	        // Create an IncomeWithApy object and add it to the result
+	        IncomeWithApy incomeWithApy = new IncomeWithApy();
+	        incomeWithApy.setSource(dto.getSource());
+	        incomeWithApy.setHistoryFrom(dto.getFrom());
+	        incomeWithApy.setHistoryTo(dto.getTo());
+	        incomeWithApy.setType(dto.getType());
+	        incomeWithApy.setFrom(null); // No need to set 'from' for all dates
+	        incomeWithApy.setTo(currentDate.toString());
+	        incomeWithApy.setIncome(income);
+	        incomeWithApy.setApy(apy);
+	        incomeWithApy.setPurchaseAmount(dto.getMin()); // Set minimum purchase amount
+	        incomeWithApy.setSaleAmount(dto.getMax()); // Set maximum sale amount
+
+	        result.add(incomeWithApy);
+	    }
+
+	    return result;
+	}
+	
+	
+	@Override
+	public List<IncomeWithIrr> calculateIncomeWithIrr(CalculateIncomeWithApyRequest request) {
 		// TODO Auto-generated method stub
 		return null;
 	}
+
 
 	@Override
 	public String calculateCorrelation(CorrelationRequest correlationRequest) {
@@ -455,4 +519,5 @@ public class IndexServiceImpl implements IndexService {
 		}
 	}
 
+	
 }

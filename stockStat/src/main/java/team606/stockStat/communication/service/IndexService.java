@@ -10,6 +10,7 @@ import team606.stockStat.communication.dto.CalculateIncomeWithApyRequest;
 import team606.stockStat.communication.dto.CalculateSumPackageRequest;
 import team606.stockStat.communication.dto.CorrelationRequest;
 import team606.stockStat.communication.dto.IncomeWithApy;
+import team606.stockStat.communication.dto.IncomeWithIrr;
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodDataCloseBetween;
 import team606.stockStat.communication.dto.PeriodRequest;
@@ -35,6 +36,8 @@ public interface IndexService {
 	List<IncomeWithApy> calculateIncomeWithApy(CalculateIncomeWithApyRequest request);
 
 	List<IncomeWithApy> calculateIncomeWithApyAllDate(CalculateIncomeWithApyRequest request);
+	
+	List<IncomeWithIrr> calculateIncomeWithIrr(CalculateIncomeWithApyRequest request);
 	
 	String calculateCorrelation(CorrelationRequest correlationRequest);
 

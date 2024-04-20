@@ -14,12 +14,3 @@ public class IncomeWithIrr {
     private SubPeriod maxIncome;
 }
 
-@Data
-class SubPeriod {
-    private LocalDate dateOfPurchase;
-    private double purchaseAmount;
-    private LocalDate dateOfSale;
-    private double saleAmount;
-    private double income;
-    private double irr;
-}

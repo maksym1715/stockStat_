@@ -6,13 +6,9 @@ import lombok.Data;
 
 @Data
 public class IncomeWithApy {
-	private String source;
-    private LocalDate historyFrom;
-    private LocalDate historyTo;
-    private String type;
-    private String from;
-    private String to;
+	private LocalDate dateOfPurchase;
     private double purchaseAmount;
+    private LocalDate dateOfSale;
     private double saleAmount;
     private double income;
     private double apy;

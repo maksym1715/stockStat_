@@ -1,5 +1,6 @@
 package team606.stockStat.communication.parser;
 
+import java.time.LocalDate;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -7,6 +8,7 @@ import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
 import javax.persistence.GenerationType;
 import javax.persistence.Id;
+import javax.persistence.ManyToOne;
 import javax.persistence.OneToOne;
 import javax.persistence.Table;
 
@@ -28,6 +30,8 @@ public class CsvData {
     private double open;
     private double high;
     private double low;
+    
+    
     
     public Map<String, Double> getAllValues() {
         Map<String, Double> values = new HashMap<>();

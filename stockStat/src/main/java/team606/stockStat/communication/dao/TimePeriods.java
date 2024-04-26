@@ -14,7 +14,7 @@ public enum TimePeriods {
             case MONTHS:
                 return to.plusMonths(quantity);
             case DECADES:
-                return to.plusDays(10*quantity);
+                return to.plusYears(10 * quantity);
             case YEARS:
                 return to.plusYears(quantity);
             case CENTURIES:

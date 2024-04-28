@@ -13,6 +13,10 @@ import javax.transaction.Transactional;
 
 import com.sun.xml.bind.v2.TODO;
 
+import org.apache.commons.math3.analysis.UnivariateFunction;
+import org.apache.commons.math3.analysis.differentiation.DerivativeStructure;
+import org.apache.commons.math3.analysis.differentiation.UnivariateDifferentiableFunction;
+import org.apache.commons.math3.analysis.solvers.NewtonRaphsonSolver;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
 import org.springframework.stereotype.Service;
 
@@ -195,7 +199,7 @@ public class IndexServiceImpl implements IndexService {
 
 
     public List<SubPeriod> calculateEachDayDuringTimePeriod(TimePeriods timePeriods, List<String> source,
-                                                 LocalDate from, LocalDate to, Long quantity) {
+                                                            LocalDate from, LocalDate to, Long quantity) {
         to = to.plusDays(1);
         List<UploadInfo> listUploadInfo = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(source,
                 from, to);
@@ -219,18 +223,52 @@ public class IndexServiceImpl implements IndexService {
                 responseDto.setType(timePeriods.toString() + " " + quantity.toString());
                 responseDto.setFrom(minDate.toString());
                 responseDto.setTo(secondDate.toString());
-                responseDto.setApy(calculateApy(income.getLow(),income.getHigh(),quantity,timePeriods));
+                responseDto.setApy(calculateApy(income.getLow(), income.getHigh(), quantity, timePeriods));
                 result.add(responseDto);
             }
         }
         return result;
     }
 
+    public static double calculateIRR(double[] cashFlows) {
+        UnivariateDifferentiableFunction function = new UnivariateDifferentiableFunction() {
+            @Override
+            public double value(double r) {
+                return npv(cashFlows, r);
+            }
+
+            @Override
+            public DerivativeStructure value(DerivativeStructure t) {
+                double npv = 0;
+                double dnpv = 0; // First derivative of NPV
+                for (int i = 0; i < cashFlows.length; i++) {
+                    npv += cashFlows[i] / Math.pow(1 + t.getValue(), i);
+                    dnpv -= i * cashFlows[i] / Math.pow(1 + t.getValue(), i + 1);
+                }
+                return t.compose(npv, dnpv);
+            }
+        };
+
+        NewtonRaphsonSolver solver = new NewtonRaphsonSolver(1e-6);
+        double initialGuess = 0.10;  // Start with an initial guess of 10%
+        double lowerBound = -0.99;   // Set a reasonable lower bound for IRR
+        double upperBound = 1.0;     // Upper bound
+        return solver.solve(100, function, initialGuess, lowerBound, upperBound);
+    }
+
+    private static double npv(double[] cashFlows, double r) {
+        double npv = 0;
+        for (int i = 0; i < cashFlows.length; i++) {
+            npv += cashFlows[i] / Math.pow(1 + r, i);
+        }
+        return npv;
+    }
+
     public static double calculateApy(double purchaseAmount, double saleAmount, long quantity, TimePeriods timePeriods) {
-    	
-    	double period = quantity;
+
+        double period = quantity;
         if (timePeriods.equals(TimePeriods.MONTHS)) {
-        	period = period / 12;
+            period = period / 12;
         }
         double netGain = saleAmount - purchaseAmount;
         double annualizedReturn = netGain / purchaseAmount; // This is the total return
@@ -252,6 +290,7 @@ public class IndexServiceImpl implements IndexService {
                 .collect(Collectors.groupingBy(UploadInfo::getSource));
 
         for (Map.Entry<String, List<UploadInfo>> entry : allBySource.entrySet()) {
+
             List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue());
             for (int i = 0; i < dataList.size(); i++) {
                 for (int j = i + 1; j < dataList.size(); j++) {
@@ -264,7 +303,7 @@ public class IndexServiceImpl implements IndexService {
                     // Ensure maxData date is after minData date
                     if (maxData.getUploadInfoId().getDate().isAfter(minData.getUploadInfoId().getDate())) {
                         double currentDifference = maxData.getHigh() - minData.getLow();
-                        if (currentDifference> 0 && currentDifference > maxDifference) {
+                        if (currentDifference > 0 && currentDifference > maxDifference) {
                             maxDifference = currentDifference;
                             bestMinIndex = i;
                             bestMaxIndex = j;
@@ -432,6 +471,7 @@ public class IndexServiceImpl implements IndexService {
         return totalSum;
     }
 
+    //TODO to add function for calculation min.
     @Override
     public List<IncomeWithApy> calculateIncomeWithApy(CalculateIncomeWithApyRequest request) {
         // Check if the request and its parameters are present
@@ -442,63 +482,82 @@ public class IndexServiceImpl implements IndexService {
             throw new IllegalArgumentException("Request parameters must not be null");
         }
 
-     
+
         LocalDate fromDate = LocalDate.parse(request.getFrom());
         LocalDate toDate = LocalDate.parse(request.getTo()).plusDays(1);
         Long quantity = request.getQuantity();
         TimePeriods timePeriodType = TimePeriods.valueOf(request.getType().toUpperCase());
 
         List<UploadInfo> uploadInfos = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(
-            request.getIndexs(), fromDate, toDate
+                request.getIndexs(), fromDate, toDate
         );
 
         Map<String, List<UploadInfo>> dataBySource = uploadInfos.stream()
-            .sorted(Comparator.comparing(UploadInfo::getDate))
-            .collect(Collectors.groupingBy(UploadInfo::getSource));
+                .sorted(Comparator.comparing(UploadInfo::getDate))
+                .collect(Collectors.groupingBy(UploadInfo::getSource));
 
         List<IncomeWithApy> result = new ArrayList<>();
 
         for (Map.Entry<String, List<UploadInfo>> entry : dataBySource.entrySet()) {
             List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue());
-
+            Map<LocalDate, CsvData> localDateCsvDataMap = dataList.stream().collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), a -> a, (c, v) -> v));
             double maxDifference = 0;
-            int bestMinIndex = -1;
-            int bestMaxIndex = -1;
+            LocalDate dateOfPurchaseFormaxValue = null;
+            LocalDate dateofSaleForMaxValue = null;
+            double purchaseAmmountForMaxValue = 0;
+            double saleAmmountForMaxValue = 0;
+            double incomeForMaxValue = 0;
+
+            double minDifference = Long.MAX_VALUE;
+            LocalDate dateOfPurchaseForMinValue = null;
+            LocalDate dateofSaleForMinValue = null;
+            double purchaseAmmountForMinValue = 0;
+            double saleAmmountForMinValue = 0;
+            double incomeForMinValue = 0;
+            double apy = 0;
 
             for (int i = 0; i < dataList.size(); i++) {
                 CsvData minData = dataList.get(i);
                 LocalDate minDate = minData.getUploadInfoId().getDate();
-                LocalDate analyzeDate = TimePeriods.getAnalyze(timePeriodType, minDate, quantity);
+                LocalDate nextDate = TimePeriods.getAnalyze(timePeriodType, minDate, quantity);
+                CsvData nextDateCsv = localDateCsvDataMap.get(nextDate);
 
-                for (int j = i + 1; j < dataList.size(); j++) {
-                    CsvData maxData = dataList.get(j);
-
-                    if (maxData.getUploadInfoId().getDate().isAfter(minDate) && maxData.getUploadInfoId().getDate().isBefore(analyzeDate)) {
-                        double currentDifference = maxData.getHigh() - minData.getLow();
-                        if (currentDifference > 0 && currentDifference > maxDifference) {
-                            maxDifference = currentDifference;
-                            bestMinIndex = i;
-                            bestMaxIndex = j;
-                        }
-                    }
+                double currentDifferenceForMax = nextDateCsv.getHigh() - minData.getLow();
+                if (currentDifferenceForMax > 0 && currentDifferenceForMax > maxDifference) {
+                    maxDifference = currentDifferenceForMax;
+                    dateOfPurchaseFormaxValue = minDate;
+                    dateofSaleForMaxValue = nextDate;
+                    purchaseAmmountForMaxValue = minData.getLow();
+                    saleAmmountForMaxValue = nextDateCsv.getHigh();
+                    incomeForMaxValue = currentDifferenceForMax;
+                }
+                double currentDifferenceForMin = nextDateCsv.getHigh() - minData.getLow();
+                if (currentDifferenceForMin > 0 && currentDifferenceForMin < minDifference) {
+                    minDifference = currentDifferenceForMin;
+                    dateOfPurchaseForMinValue = minDate;
+                    dateofSaleForMinValue = nextDate;
+                    purchaseAmmountForMinValue = minData.getLow();
+                    saleAmmountForMinValue = nextDateCsv.getHigh();
+                    incomeForMinValue = currentDifferenceForMax;
                 }
             }
-            
-            
-
-            if (bestMinIndex >= 0 && bestMaxIndex >= 0) {
-                CsvData minCsvData = dataList.get(bestMinIndex);
-                CsvData maxCsvData = dataList.get(bestMaxIndex);
-                
-                LocalDate analyzeDate = TimePeriods.getAnalyze(timePeriodType, minCsvData.getUploadInfoId().getDate(), request.getQuantity());
-
-                IncomeWithApy minIncome = createIncomeWithApyFromCsvData(minCsvData, analyzeDate);
-                IncomeWithApy maxIncome = createIncomeWithApyFromCsvData(maxCsvData, analyzeDate);
-
-                result.add(minIncome);
-                result.add(maxIncome);
-            }
+            result.add(new IncomeWithApy(dateOfPurchaseForMinValue, purchaseAmmountForMinValue, dateofSaleForMinValue, saleAmmountForMinValue, incomeForMinValue, calculateApy(purchaseAmmountForMinValue, saleAmmountForMinValue, quantity, timePeriodType)));
+            result.add(new IncomeWithApy(dateOfPurchaseFormaxValue, purchaseAmmountForMaxValue, dateofSaleForMaxValue, saleAmmountForMaxValue, incomeForMaxValue, calculateApy(purchaseAmmountForMaxValue, saleAmmountForMaxValue, quantity, timePeriodType)));
         }
+
+
+//        if (bestMinIndex >= 0 && bestMaxIndex >= 0) {
+//            CsvData minCsvData = dataList.get(bestMinIndex);
+//            CsvData maxCsvData = dataList.get(bestMaxIndex);
+//
+//            LocalDate analyzeDate = TimePeriods.getAnalyze(timePeriodType, minCsvData.getUploadInfoId().getDate(), request.getQuantity());
+//
+//            IncomeWithApy minIncome = createIncomeWithApyFromCsvData(minCsvData, analyzeDate);
+//            IncomeWithApy maxIncome = createIncomeWithApyFromCsvData(maxCsvData, analyzeDate);
+//
+//            result.add(minIncome);
+//            result.add(maxIncome);
+//        }
 
         return result;
     }
@@ -514,128 +573,253 @@ public class IndexServiceImpl implements IndexService {
         return incomeWithApy;
     }
 
-   
+
     @Override
     public List<IncomeWithApyAllDate> calculateIncomeWithApyAllDate(CalculateIncomeWithApyRequest request) {
+        // Check if the request and its parameters are present
         if (request == null) {
             throw new IllegalArgumentException("Request must not be null");
         }
-        if (request.getIndexs() == null || request.getType() == null || request.getQuantity() == null) {
+        if (request.getIndexs() == null || request.getType() == null || request.getFrom() == null || request.getTo() == null || request.getQuantity() == null) {
             throw new IllegalArgumentException("Request parameters must not be null");
         }
 
+
         LocalDate fromDate = LocalDate.parse(request.getFrom());
-        LocalDate toDate = LocalDate.parse(request.getTo());
+        LocalDate toDate = LocalDate.parse(request.getTo()).plusDays(1);
+        Long quantity = request.getQuantity();
+        TimePeriods timePeriodType = TimePeriods.valueOf(request.getType().toUpperCase());
+
+        List<UploadInfo> uploadInfos = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(
+                request.getIndexs(), fromDate, toDate
+        );
+
+        Map<String, List<UploadInfo>> dataBySource = uploadInfos.stream()
+                .sorted(Comparator.comparing(UploadInfo::getDate))
+                .collect(Collectors.groupingBy(UploadInfo::getSource));
 
         List<IncomeWithApyAllDate> result = new ArrayList<>();
-        LocalDate currentDate = fromDate;
-
-        while (!currentDate.isAfter(toDate)) {
-            LocalDate nextDate = TimePeriods.getAnalyze(TimePeriods.valueOf(request.getType().toUpperCase()), currentDate, request.getQuantity());
-
-            
-            List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdDateBetween(currentDate, nextDate);
-
-            if (!dataList.isEmpty()) {
-                CsvData firstData = dataList.stream().min(Comparator.comparing(d -> d.getUploadInfoId().getDate())).orElse(null);
-                CsvData lastData = dataList.stream().max(Comparator.comparing(d -> d.getUploadInfoId().getDate())).orElse(null);
-
-                if (firstData != null && lastData != null) {
-                    IncomeWithApyAllDate income = new IncomeWithApyAllDate();
-                    income.setSource(firstData.getUploadInfoId().getSource());
-                    income.setHistoryFrom(currentDate);
-                    income.setHistoryTo(nextDate);
-                    income.setFrom(firstData.getUploadInfoId().getDate().toString());
-                    income.setTo(lastData.getUploadInfoId().getDate().toString());
-                    income.setPurchaseAmount(firstData.getLow());
-                    income.setSaleAmount(lastData.getHigh());
-                    income.setIncome(income.getSaleAmount() - income.getPurchaseAmount());
-
-                    double daysDifference = firstData.getUploadInfoId().getDate().until(lastData.getUploadInfoId().getDate(), java.time.temporal.ChronoUnit.DAYS);
-                    double yearsDifference = daysDifference / 365.0;
-
-                    double apy = Math.pow(income.getSaleAmount() / income.getPurchaseAmount(), 1.0 / yearsDifference) - 1;
-                    income.setApy(apy);
-
-                    result.add(income);
-                    
-                    
-                    System.out.println("Current Date: " + currentDate);
-                    System.out.println("Next Date: " + nextDate);
-                   
-                    System.out.println("Data List Size: " + dataList.size());
-                }
+        for (Map.Entry<String, List<UploadInfo>> entry : dataBySource.entrySet()) {
+            List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue());
+            Map<LocalDate, CsvData> localDateCsvDataMap = dataList.stream().collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), a -> a, (c, v) -> v));
+            for (int i = 0; i < dataList.size(); i++) {
+                CsvData minData = dataList.get(i);
+                LocalDate minDate = minData.getUploadInfoId().getDate();
+                LocalDate nextDate = TimePeriods.getAnalyze(timePeriodType, minDate, quantity);
+                CsvData nextDateCsv = localDateCsvDataMap.get(nextDate);
+                result.add(new IncomeWithApyAllDate(entry.getKey(), LocalDate.parse(request.getFrom()), LocalDate.parse(request.getTo()),
+                        timePeriodType.toString(), minDate.toString(), nextDate.toString(),
+                        minData.getLow(), nextDateCsv.getHigh(),
+                        nextDateCsv.getHigh() - minData.getLow(), calculateApy(minData.getLow(), nextDateCsv.getHigh(), quantity, timePeriodType)));
             }
-
-            currentDate = nextDate;  
         }
-
         return result;
     }
 
-   
 
-   
+//    if (request == null) {
+//        throw new IllegalArgumentException("Request must not be null");
+//    }
+//    if (request.getIndexs() == null || request.getType() == null || request.getQuantity() == null) {
+//        throw new IllegalArgumentException("Request parameters must not be null");
+//    }
+//
+//    LocalDate fromDate = LocalDate.parse(request.getFrom());
+//    LocalDate toDate = LocalDate.parse(request.getTo());
+//
+//    List<IncomeWithApyAllDate> result = new ArrayList<>();
+//    LocalDate currentDate = fromDate;
+//
+//    while (!currentDate.isAfter(toDate)) {
+//        LocalDate nextDate = TimePeriods.getAnalyze(TimePeriods.valueOf(request.getType().toUpperCase()), currentDate, request.getQuantity());
+//
+//
+//        List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdDateBetween(currentDate, nextDate);
+//
+//        if (!dataList.isEmpty()) {
+//            CsvData firstData = dataList.stream().min(Comparator.comparing(d -> d.getUploadInfoId().getDate())).orElse(null);
+//            CsvData lastData = dataList.stream().max(Comparator.comparing(d -> d.getUploadInfoId().getDate())).orElse(null);
+//
+//            if (firstData != null && lastData != null) {
+//                IncomeWithApyAllDate income = new IncomeWithApyAllDate();
+//                income.setSource(firstData.getUploadInfoId().getSource());
+//                income.setHistoryFrom(currentDate);
+//                income.setHistoryTo(nextDate);
+//                income.setFrom(firstData.getUploadInfoId().getDate().toString());
+//                income.setTo(lastData.getUploadInfoId().getDate().toString());
+//                income.setPurchaseAmount(firstData.getLow());
+//                income.setSaleAmount(lastData.getHigh());
+//                income.setIncome(income.getSaleAmount() - income.getPurchaseAmount());
+//
+//                double daysDifference = firstData.getUploadInfoId().getDate().until(lastData.getUploadInfoId().getDate(), java.time.temporal.ChronoUnit.DAYS);
+//                double yearsDifference = daysDifference / 365.0;
+//
+//                double apy = Math.pow(income.getSaleAmount() / income.getPurchaseAmount(), 1.0 / yearsDifference) - 1;
+//                income.setApy(apy);
+//
+//                result.add(income);
+//
+//
+//                System.out.println("Current Date: " + currentDate);
+//                System.out.println("Next Date: " + nextDate);
+//
+//                System.out.println("Data List Size: " + dataList.size());
+//            }
+//        }
+//
+//        currentDate = nextDate;
+//    }
+//
+//    return result;
+
+
     @Override
     public List<IncomeWithIrr> calculateIncomeWithIrr(CalculateIncomeWithApyRequest request) {
-        // TODO Auto-generated method stub
-        return null;
-    }
- 
-
-    @Override
-    public String calculateCorrelation(CorrelationRequest correlationRequest) {
-    	if (correlationRequest == null || correlationRequest.getIndexs() == null || correlationRequest.getIndexs().size() < 2) {
-            throw new IllegalArgumentException("Two indices are required to calculate correlation.");
+        // Check if the request and its parameters are present
+        if (request == null) {
+            throw new IllegalArgumentException("Request must not be null");
+        }
+        if (request.getIndexs() == null || request.getType() == null || request.getFrom() == null || request.getTo() == null || request.getQuantity() == null) {
+            throw new IllegalArgumentException("Request parameters must not be null");
         }
 
-        String index1 = correlationRequest.getIndexs().get(0);
-        String index2 = correlationRequest.getIndexs().get(1);
-        LocalDate from = LocalDate.parse(correlationRequest.getFrom());
-        LocalDate to = LocalDate.parse(correlationRequest.getTo());
-		return index2;
 
-		/*
-		 * 
-		 * List<CsvData> data1 =
-		 * csvDataRepository.findAllByUploadInfoSourceAndUploadInfoDateBetween(index1,
-		 * from, to); List<CsvData> data2 =
-		 * csvDataRepository.findAllByUploadInfoSourceAndUploadInfoDateBetween(index2,
-		 * from, to);
-		 */
-		/*
-		 * if (data1.isEmpty() || data2.isEmpty()) { return
-		 * "No data available for one or both indices in the given period."; }
-		 * 
-		 * 
-		 * double[] values1 = data1.stream().mapToDouble(CsvData::getClose).toArray();
-		 * double[] values2 = data2.stream().mapToDouble(CsvData::getClose).toArray();
-		 */
+        LocalDate fromDate = LocalDate.parse(request.getFrom());
+        LocalDate toDate = LocalDate.parse(request.getTo()).plusDays(1);
+        Long quantity = request.getQuantity();
+        TimePeriods timePeriodType = TimePeriods.valueOf(request.getType().toUpperCase());
 
-        
-		/*
-		 * PearsonsCorrelation correlation = new PearsonsCorrelation(); double
-		 * correlationCoefficient = correlation.correlation(values1, values2);
-		 * 
-		 * 
-		 * String correlationDescription; if (Math.abs(correlationCoefficient) > 0.8) {
-		 * correlationDescription = (correlationCoefficient > 0) ?
-		 * "Very strong positive correlation" : "Very strong negative correlation"; }
-		 * else if (Math.abs(correlationCoefficient) > 0.6) { correlationDescription =
-		 * (correlationCoefficient > 0) ? "Strong positive correlation" :
-		 * "Strong negative correlation"; } else if (Math.abs(correlationCoefficient) >
-		 * 0.4) { correlationDescription = (correlationCoefficient > 0) ?
-		 * "Moderate positive correlation" : "Moderate negative correlation"; } else if
-		 * (Math.abs(correlationCoefficient) > 0.2) { correlationDescription =
-		 * (correlationCoefficient > 0) ? "Weak positive correlation" :
-		 * "Weak negative correlation"; } else if (Math.abs(correlationCoefficient) >
-		 * 0.1) { correlationDescription = (correlationCoefficient > 0) ?
-		 * "Negligible positive correlation" : "Negligible negative correlation"; } else
-		 * { correlationDescription = "No correlation"; }
-		 * 
-		 * return correlationDescription;
-		 */
-    
+        List<UploadInfo> uploadInfos = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(
+                request.getIndexs(), fromDate, toDate
+        );
+
+        Map<String, List<UploadInfo>> dataBySource = uploadInfos.stream()
+                .sorted(Comparator.comparing(UploadInfo::getDate))
+                .collect(Collectors.groupingBy(UploadInfo::getSource));
+
+        List<IncomeWithIrr> result = new ArrayList<>();
+
+        for (Map.Entry<String, List<UploadInfo>> entry : dataBySource.entrySet()) {
+            List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue());
+            Map<LocalDate, CsvData> localDateCsvDataMap = dataList.stream().collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), a -> a, (c, v) -> v));
+            double maxDifference = 0;
+            LocalDate dateOfPurchaseFormaxValue = null;
+            LocalDate dateofSaleForMaxValue = null;
+            double purchaseAmmountForMaxValue = 0;
+            double saleAmmountForMaxValue = 0;
+            double incomeForMaxValue = 0;
+
+            double minDifference = Long.MAX_VALUE;
+            LocalDate dateOfPurchaseForMinValue = null;
+            LocalDate dateofSaleForMinValue = null;
+            double purchaseAmmountForMinValue = 0;
+            double saleAmmountForMinValue = 0;
+            double incomeForMinValue = 0;
+            double apy = 0;
+
+            for (int i = 0; i < dataList.size(); i++) {
+                CsvData minData = dataList.get(i);
+                LocalDate minDate = minData.getUploadInfoId().getDate();
+                LocalDate nextDate = TimePeriods.getAnalyze(timePeriodType, minDate, quantity);
+                CsvData nextDateCsv = localDateCsvDataMap.get(nextDate);
+
+                double currentDifferenceForMax = nextDateCsv.getHigh() - minData.getLow();
+                if (currentDifferenceForMax > 0 && currentDifferenceForMax > maxDifference) {
+                    maxDifference = currentDifferenceForMax;
+                    dateOfPurchaseFormaxValue = minDate;
+                    dateofSaleForMaxValue = nextDate;
+                    purchaseAmmountForMaxValue = minData.getLow();
+                    saleAmmountForMaxValue = nextDateCsv.getHigh();
+                    incomeForMaxValue = currentDifferenceForMax;
+                }
+                double currentDifferenceForMin = nextDateCsv.getHigh() - minData.getLow();
+                if (currentDifferenceForMin > 0 && currentDifferenceForMin < minDifference) {
+                    minDifference = currentDifferenceForMin;
+                    dateOfPurchaseForMinValue = minDate;
+                    dateofSaleForMinValue = nextDate;
+                    purchaseAmmountForMinValue = minData.getLow();
+                    saleAmmountForMinValue = nextDateCsv.getHigh();
+                    incomeForMinValue = currentDifferenceForMax;
+                }
+            }
+
+            SubPeriodWithIrr subPeriodWithIrrForMin = new SubPeriodWithIrr(entry.getKey(), dateOfPurchaseForMinValue.toString(), purchaseAmmountForMinValue, dateofSaleForMinValue.toString(), saleAmmountForMinValue, incomeForMinValue, calculateIRR(new double[]{-purchaseAmmountForMinValue, 0, saleAmmountForMinValue}));
+            SubPeriodWithIrr subPeriodWithIrrForMax = new SubPeriodWithIrr(entry.getKey(), dateOfPurchaseFormaxValue.toString(), purchaseAmmountForMaxValue, dateofSaleForMaxValue.toString(), saleAmmountForMaxValue, incomeForMaxValue, calculateIRR(new double[]{-purchaseAmmountForMaxValue, 0, saleAmmountForMaxValue}));
+            result.add(new IncomeWithIrr(request.getFrom(), request.getTo(), request.getType(), request.getIndexs(), subPeriodWithIrrForMax, subPeriodWithIrrForMax));
+        }
+        return result;
+    }
+
+
+    @Override
+    public String calculateCorrelation(CorrelationRequest request) {
+        if (request == null || request.getIndexs() == null || request.getIndexs().size() < 2) {
+            throw new IllegalArgumentException("Two indices are required to calculate correlation.");
+        }
+        // Check if the request and its parameters are present
+
+
+
+        LocalDate fromDate = LocalDate.parse(request.getFrom());
+        LocalDate toDate = LocalDate.parse(request.getTo()).plusDays(1);
+        List<UploadInfo> uploadInfos = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(
+                request.getIndexs(), fromDate, toDate
+        );
+        Map<String, List<UploadInfo>> dataBySource = uploadInfos.stream()
+                .sorted(Comparator.comparing(UploadInfo::getDate))
+                .collect(Collectors.groupingBy(UploadInfo::getSource));
+        List<UploadInfo> uploadInfos1 = dataBySource.get(request.getIndexs().get(0));
+        List<UploadInfo> uploadInfos2 = dataBySource.get(request.getIndexs().get(1));
+        double[] allByUploadInfoIdIn = csvDataRepository.findAllByUploadInfoIdIn(uploadInfos1).stream().map(a->a.getClose()).mapToDouble(Double::doubleValue).toArray();
+        double[] allByUploadInfoIdIn1 = csvDataRepository.findAllByUploadInfoIdIn(uploadInfos2).stream().map(a->a.getClose()).mapToDouble(Double::doubleValue).toArray();
+        double correlation = new PearsonsCorrelation().correlation(allByUploadInfoIdIn,allByUploadInfoIdIn1);
+//        Strong Correlation: Generally, a correlation of -0.7 to -1.0 or 0.7 to 1.0 is considered strong. These values suggest a significant linear relationship between the variables.
+//                Moderate Correlation: A correlation of -0.7 to -0.3 or 0.3 to 0.7 indicates a moderate linear relationship. This suggests some relationship, but it's not exceptionally tight.
+//        Weak Correlation: A correlation of -0.3 to -0.1 or 0.1 to 0.3 suggests a weak linear relationship, which might be harder to use predictively as the scatter in the data points away from a line is considerable.
+//                No Correlation: Very close to 0, from -0.1 to 0.1, indicates no noticeable linear relationship.
+//
+
+        /*
+         *
+         * List<CsvData> data1 =
+         * csvDataRepository.findAllByUploadInfoSourceAndUploadInfoDateBetween(index1,
+         * from, to); List<CsvData> data2 =
+         * csvDataRepository.findAllByUploadInfoSourceAndUploadInfoDateBetween(index2,
+         * from, to);
+         */
+        /*
+         * if (data1.isEmpty() || data2.isEmpty()) { return
+         * "No data available for one or both indices in the given period."; }
+         *
+         *
+         * double[] values1 = data1.stream().mapToDouble(CsvData::getClose).toArray();
+         * double[] values2 = data2.stream().mapToDouble(CsvData::getClose).toArray();
+         */
+
+
+        /*
+         * PearsonsCorrelation correlation = new PearsonsCorrelation(); double
+         * correlationCoefficient = correlation.correlation(values1, values2);
+         *
+         *
+         * String correlationDescription; if (Math.abs(correlationCoefficient) > 0.8) {
+         * correlationDescription = (correlationCoefficient > 0) ?
+         * "Very strong positive correlation" : "Very strong negative correlation"; }
+         * else if (Math.abs(correlationCoefficient) > 0.6) { correlationDescription =
+         * (correlationCoefficient > 0) ? "Strong positive correlation" :
+         * "Strong negative correlation"; } else if (Math.abs(correlationCoefficient) >
+         * 0.4) { correlationDescription = (correlationCoefficient > 0) ?
+         * "Moderate positive correlation" : "Moderate negative correlation"; } else if
+         * (Math.abs(correlationCoefficient) > 0.2) { correlationDescription =
+         * (correlationCoefficient > 0) ? "Weak positive correlation" :
+         * "Weak negative correlation"; } else if (Math.abs(correlationCoefficient) >
+         * 0.1) { correlationDescription = (correlationCoefficient > 0) ?
+         * "Negligible positive correlation" : "Negligible negative correlation"; } else
+         * { correlationDescription = "No correlation"; }
+         *
+         * return correlationDescription;
+         */
+
     }
 
     @Transactional

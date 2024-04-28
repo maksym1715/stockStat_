@@ -1,0 +1,119 @@
+1. calculateIncomeWithApyAllDate - returns empty array.
+2.   @PostMapping("/index/apy_all") here we need to return all incomes not only min and max.
+
+d
+
+    3. @PostMapping("/communication/indexIrr") calculate min and max and irr.
+   Максим Зайцев, [26/04/2024 17:07]
+   Считает прибыль и годовую доходность для акций. Отображает все доходности с временным подпериодом.
+   Body:
+
+   "indexs": - Индексы компании
+   "type": - тип аналитического периода
+   "quantity": - длина аналитического периода
+   "from": - дата начала истории
+   "to": - дата конца истории
+   Response:
+
+   "from": - дата начала истории
+   "to": - дата конца истории
+   "source": - индекс компании
+   "type": - тип и длина аналитического периода
+   "minIncome": - обозначение подпериода с минимальной годовой доходностью
+   {
+   "dateOfPurchase": - дата покупки котировки
+   "purchaseAmount": - цена покупки котировки
+   "dateOfSale": - дата продажи котировки
+   "saleAmount": - цена продажи котировки
+   "income": - прибыль от продажи котировки
+   "apy": - годовая доходность в этом подъпериоде
+   },
+   "maxIncome": - обозначение подпериода с минимальной годовой доходностью
+   {
+   "dateOfPurchase": - дата покупки котировки
+   "purchaseAmount": - цена покупки котировки
+   "dateOfSale": - дата продажи котировки
+   "saleAmount": - цена продажи котировки
+   "income": - прибыль от продажи котировки
+   "apy": - годовая доходность в этом подъпериоде
+   }
+
+
+
+   Calculates the profit and annual yield for stocks. Displays all yields with a time sub-period.
+   Body:
+
+   "indexs": - stock indexes
+   "type": - type of analytical period
+   "quantity": - length of analytical period
+   "from": - start date of history
+   "to": - end date of history
+   Response:
+
+   "from": - start date of history
+   "to": - end date of history
+   "source": - the company index
+   "type": - the type and length of analytical period
+   "minIncome": - the sub-period designation with the minimum annual yield
+   {
+   "dateOfPurchase": - the date of purchase of the quote
+   "purchaseAmount": - the purchase price of the quote
+   "dateOfSale": - the date of sale of the quote
+   "saleAmount": - the sale price of the quote
+   "income": - the profit from selling the quote
+   "apy": - the annual yield in this sub-period
+   },
+   "maxIncome": - the sub-period designation with the maximum annual yield
+   {
+   "dateOfPurchase": - the date of purchase of the quote
+   "purchaseAmount": - the purchase price of the quote
+   "dateOfSale": - the date of sale of the quote
+   "saleAmount": - the sale price of the quote
+   "income": - the profit from selling the quote
+   "apy": - the annual yield in this sub-period
+   }
+
+   Максим Зайцев, [26/04/2024 17:17]
+   Возвращает информацию о корреляции между акциями.
+   Считает прибыль и годовую доходность для акций. Отображает минимальную и максимальную доходность с временным подъпериодом.
+   Body:
+
+   "indexs": - Индексы компании
+   "type": - тип аналитического периода
+   "quantity": - длина аналитического периода
+   "from": - дата начала истории
+   "to": - дата конца истории
+   Response - возможные варианты:
+
+   Very strong correlation positive/negative
+   Strong correlation positive/negative
+   Moderate correlation positive/negative
+   Weak correlation positive/negative
+   Negligible correlation positive/negative
+   No correlation
+
+
+
+
+   Returns information about the correlation between stocks.
+   Calculates the profit and annual yield for stocks. Displays the minimum and maximum yield with a subperiod of time.
+   Body:
+
+   "indexs": - stock indexes
+   "type": - type of analytical period
+   "quantity": - length of analytical period
+   "from": - start date of history
+   "to": - end date of history
+   Response:
+
+   "very strong positive correlation"
+   "very strong negative correlation"
+   "strong positive correlation"
+   "strong negative correlation"
+   "moderate positive correlation"
+   "moderate negative correlation"
+   "weak positive correlation"
+   "weak negative correlation"
+   "negligible positive correlation"
+   "negligible negative correlation"
+   "no correlation"

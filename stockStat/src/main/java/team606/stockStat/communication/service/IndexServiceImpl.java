@@ -472,16 +472,16 @@ public class IndexServiceImpl implements IndexService {
     }
 
     //TODO to add function for calculation min.
+    
     @Override
     public List<IncomeWithApy> calculateIncomeWithApy(CalculateIncomeWithApyRequest request) {
-        // Check if the request and its parameters are present
+        // Проверка наличия запроса и его параметров
         if (request == null) {
-            throw new IllegalArgumentException("Request must not be null");
+            throw new IllegalArgumentException("Запрос не должен быть null");
         }
         if (request.getIndexs() == null || request.getType() == null || request.getFrom() == null || request.getTo() == null || request.getQuantity() == null) {
-            throw new IllegalArgumentException("Request parameters must not be null");
+            throw new IllegalArgumentException("Параметры запроса не должны быть null");
         }
-
 
         LocalDate fromDate = LocalDate.parse(request.getFrom());
         LocalDate toDate = LocalDate.parse(request.getTo()).plusDays(1);
@@ -501,20 +501,20 @@ public class IndexServiceImpl implements IndexService {
         for (Map.Entry<String, List<UploadInfo>> entry : dataBySource.entrySet()) {
             List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue());
             Map<LocalDate, CsvData> localDateCsvDataMap = dataList.stream().collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), a -> a, (c, v) -> v));
+            
             double maxDifference = 0;
-            LocalDate dateOfPurchaseFormaxValue = null;
-            LocalDate dateofSaleForMaxValue = null;
-            double purchaseAmmountForMaxValue = 0;
-            double saleAmmountForMaxValue = 0;
+            LocalDate dateOfPurchaseForMaxValue = null;
+            LocalDate dateOfSaleForMaxValue = null;
+            double purchaseAmountForMaxValue = 0;
+            double saleAmountForMaxValue = 0;
             double incomeForMaxValue = 0;
 
-            double minDifference = Long.MAX_VALUE;
+            double minDifference = Double.MAX_VALUE;
             LocalDate dateOfPurchaseForMinValue = null;
-            LocalDate dateofSaleForMinValue = null;
-            double purchaseAmmountForMinValue = 0;
-            double saleAmmountForMinValue = 0;
+            LocalDate dateOfSaleForMinValue = null;
+            double purchaseAmountForMinValue = 0;
+            double saleAmountForMinValue = 0;
             double incomeForMinValue = 0;
-            double apy = 0;
 
             for (int i = 0; i < dataList.size(); i++) {
                 CsvData minData = dataList.get(i);
@@ -522,42 +522,37 @@ public class IndexServiceImpl implements IndexService {
                 LocalDate nextDate = TimePeriods.getAnalyze(timePeriodType, minDate, quantity);
                 CsvData nextDateCsv = localDateCsvDataMap.get(nextDate);
 
-                double currentDifferenceForMax = nextDateCsv.getHigh() - minData.getLow();
-                if (currentDifferenceForMax > 0 && currentDifferenceForMax > maxDifference) {
-                    maxDifference = currentDifferenceForMax;
-                    dateOfPurchaseFormaxValue = minDate;
-                    dateofSaleForMaxValue = nextDate;
-                    purchaseAmmountForMaxValue = minData.getLow();
-                    saleAmmountForMaxValue = nextDateCsv.getHigh();
-                    incomeForMaxValue = currentDifferenceForMax;
-                }
-                double currentDifferenceForMin = nextDateCsv.getHigh() - minData.getLow();
-                if (currentDifferenceForMin > 0 && currentDifferenceForMin < minDifference) {
-                    minDifference = currentDifferenceForMin;
-                    dateOfPurchaseForMinValue = minDate;
-                    dateofSaleForMinValue = nextDate;
-                    purchaseAmmountForMinValue = minData.getLow();
-                    saleAmmountForMinValue = nextDateCsv.getHigh();
-                    incomeForMinValue = currentDifferenceForMax;
+                if (nextDateCsv != null && nextDate.isBefore(toDate)) {
+                    double currentDifferenceForMax = nextDateCsv.getHigh() - minData.getLow();
+                    if (currentDifferenceForMax > 0 && currentDifferenceForMax > maxDifference) {
+                        maxDifference = currentDifferenceForMax;
+                        dateOfPurchaseForMaxValue = minDate;
+                        dateOfSaleForMaxValue = nextDate;
+                        purchaseAmountForMaxValue = minData.getLow();
+                        saleAmountForMaxValue = nextDateCsv.getHigh();
+                        incomeForMaxValue = currentDifferenceForMax;
+                    }
+
+                    double currentDifferenceForMin = nextDateCsv.getHigh() - minData.getLow();
+                    if (currentDifferenceForMin > 0 && currentDifferenceForMin < minDifference) {
+                        minDifference = currentDifferenceForMin;
+                        dateOfPurchaseForMinValue = minDate;
+                        dateOfSaleForMinValue = nextDate;
+                        purchaseAmountForMinValue = minData.getLow();
+                        saleAmountForMinValue = nextDateCsv.getHigh();
+                        incomeForMinValue = currentDifferenceForMin;
+                    }
                 }
             }
-            result.add(new IncomeWithApy(dateOfPurchaseForMinValue, purchaseAmmountForMinValue, dateofSaleForMinValue, saleAmmountForMinValue, incomeForMinValue, calculateApy(purchaseAmmountForMinValue, saleAmmountForMinValue, quantity, timePeriodType)));
-            result.add(new IncomeWithApy(dateOfPurchaseFormaxValue, purchaseAmmountForMaxValue, dateofSaleForMaxValue, saleAmmountForMaxValue, incomeForMaxValue, calculateApy(purchaseAmmountForMaxValue, saleAmmountForMaxValue, quantity, timePeriodType)));
+
+            if (dateOfPurchaseForMinValue != null && dateOfSaleForMinValue != null) {
+                result.add(new IncomeWithApy(dateOfPurchaseForMinValue, purchaseAmountForMinValue, dateOfSaleForMinValue, saleAmountForMinValue, incomeForMinValue, calculateApy(purchaseAmountForMinValue, saleAmountForMinValue, quantity, timePeriodType)));
+            }
+
+            if (dateOfPurchaseForMaxValue != null && dateOfSaleForMaxValue != null) {
+                result.add(new IncomeWithApy(dateOfPurchaseForMaxValue, purchaseAmountForMaxValue, dateOfSaleForMaxValue, saleAmountForMaxValue, incomeForMaxValue, calculateApy(purchaseAmountForMaxValue, saleAmountForMaxValue, quantity, timePeriodType)));
+            }
         }
-
-
-//        if (bestMinIndex >= 0 && bestMaxIndex >= 0) {
-//            CsvData minCsvData = dataList.get(bestMinIndex);
-//            CsvData maxCsvData = dataList.get(bestMaxIndex);
-//
-//            LocalDate analyzeDate = TimePeriods.getAnalyze(timePeriodType, minCsvData.getUploadInfoId().getDate(), request.getQuantity());
-//
-//            IncomeWithApy minIncome = createIncomeWithApyFromCsvData(minCsvData, analyzeDate);
-//            IncomeWithApy maxIncome = createIncomeWithApyFromCsvData(maxCsvData, analyzeDate);
-//
-//            result.add(minIncome);
-//            result.add(maxIncome);
-//        }
 
         return result;
     }
@@ -778,6 +773,7 @@ public class IndexServiceImpl implements IndexService {
 //        Weak Correlation: A correlation of -0.3 to -0.1 or 0.1 to 0.3 suggests a weak linear relationship, which might be harder to use predictively as the scatter in the data points away from a line is considerable.
 //                No Correlation: Very close to 0, from -0.1 to 0.1, indicates no noticeable linear relationship.
 //
+		return null;
 
         /*
          *

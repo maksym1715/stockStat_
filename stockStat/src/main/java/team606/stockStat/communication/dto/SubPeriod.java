@@ -2,11 +2,13 @@ package team606.stockStat.communication.dto;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDate;
 
 @Data
 @AllArgsConstructor
+@NoArgsConstructor
 public class SubPeriod {
 	/*
 	 * private String source; private String historyFrom; private String historyTo;

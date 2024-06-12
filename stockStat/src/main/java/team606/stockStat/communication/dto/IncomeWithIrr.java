@@ -9,11 +9,12 @@ import lombok.Data;
 @Data
 @AllArgsConstructor
 public class IncomeWithIrr {
-    private String from;
+	private String from;
     private String to;
     private String type;
     private List<String> source;
     private SubPeriodWithIrr minIncome;
     private SubPeriodWithIrr maxIncome;
+    private List<IRRHistory> irrHistory;
 }
 

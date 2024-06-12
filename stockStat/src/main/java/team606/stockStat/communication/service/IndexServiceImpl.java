@@ -31,13 +31,15 @@ import team606.stockStat.communication.parser.CsvData;
 import team606.stockStat.communication.parser.SourceData;
 import team606.stockStat.communication.parser.UploadInfo;
 import org.apache.commons.math3.stat.correlation.PearsonsCorrelation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 
 import static java.util.stream.Collectors.toList;
 
 @Service
 public class IndexServiceImpl implements IndexService {
-
+	private static final Logger logger = LoggerFactory.getLogger(IndexServiceImpl.class);
     private final CsvDataRepository csvDataRepository;
     private final UploadInfoRepository uploadInfoRepository;
 
@@ -474,7 +476,7 @@ public class IndexServiceImpl implements IndexService {
     //TODO to add function for calculation min.
     
     @Override
-    public List<IncomeWithApy> calculateIncomeWithApy(CalculateIncomeWithApyRequest request) {
+    public IncomeWithApyResponse calculateIncomeWithApy(CalculateIncomeWithApyRequest request) {
         // Проверка наличия запроса и его параметров
         if (request == null) {
             throw new IllegalArgumentException("Запрос не должен быть null");
@@ -496,7 +498,8 @@ public class IndexServiceImpl implements IndexService {
                 .sorted(Comparator.comparing(UploadInfo::getDate))
                 .collect(Collectors.groupingBy(UploadInfo::getSource));
 
-        List<IncomeWithApy> result = new ArrayList<>();
+        IncomeWithApy minIncome = null;
+        IncomeWithApy maxIncome = null;
 
         for (Map.Entry<String, List<UploadInfo>> entry : dataBySource.entrySet()) {
             List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue());
@@ -546,15 +549,24 @@ public class IndexServiceImpl implements IndexService {
             }
 
             if (dateOfPurchaseForMinValue != null && dateOfSaleForMinValue != null) {
-                result.add(new IncomeWithApy(dateOfPurchaseForMinValue, purchaseAmountForMinValue, dateOfSaleForMinValue, saleAmountForMinValue, incomeForMinValue, calculateApy(purchaseAmountForMinValue, saleAmountForMinValue, quantity, timePeriodType)));
+                minIncome = new IncomeWithApy(dateOfPurchaseForMinValue, purchaseAmountForMinValue, dateOfSaleForMinValue, saleAmountForMinValue, incomeForMinValue, calculateApy(purchaseAmountForMinValue, saleAmountForMinValue, quantity, timePeriodType));
             }
 
             if (dateOfPurchaseForMaxValue != null && dateOfSaleForMaxValue != null) {
-                result.add(new IncomeWithApy(dateOfPurchaseForMaxValue, purchaseAmountForMaxValue, dateOfSaleForMaxValue, saleAmountForMaxValue, incomeForMaxValue, calculateApy(purchaseAmountForMaxValue, saleAmountForMaxValue, quantity, timePeriodType)));
+                maxIncome = new IncomeWithApy(dateOfPurchaseForMaxValue, purchaseAmountForMaxValue, dateOfSaleForMaxValue, saleAmountForMaxValue, incomeForMaxValue, calculateApy(purchaseAmountForMaxValue, saleAmountForMaxValue, quantity, timePeriodType));
             }
         }
 
-        return result;
+        // Создание и возврат объекта ответа
+        IncomeWithApyResponse response = new IncomeWithApyResponse();
+        response.setFrom(request.getFrom());
+        response.setTo(request.getTo());
+        response.setSource(request.getIndexs());
+        response.setType(request.getQuantity() + " " + request.getType());
+        response.setMinIncome(minIncome);
+        response.setMaxIncome(maxIncome);
+
+        return response;
     }
 
     private IncomeWithApy createIncomeWithApyFromCsvData(CsvData csvData, LocalDate dateOfSale) {
@@ -568,26 +580,32 @@ public class IndexServiceImpl implements IndexService {
         return incomeWithApy;
     }
 
+    //TODO we get empty result
 
     @Override
     public List<IncomeWithApyAllDate> calculateIncomeWithApyAllDate(CalculateIncomeWithApyRequest request) {
-        // Check if the request and its parameters are present
+        // Проверка наличия запроса и его параметров
         if (request == null) {
-            throw new IllegalArgumentException("Request must not be null");
+            throw new IllegalArgumentException("Запрос не должен быть null");
         }
         if (request.getIndexs() == null || request.getType() == null || request.getFrom() == null || request.getTo() == null || request.getQuantity() == null) {
-            throw new IllegalArgumentException("Request parameters must not be null");
+            throw new IllegalArgumentException("Параметры запроса не должны быть null");
         }
-
 
         LocalDate fromDate = LocalDate.parse(request.getFrom());
         LocalDate toDate = LocalDate.parse(request.getTo()).plusDays(1);
         Long quantity = request.getQuantity();
         TimePeriods timePeriodType = TimePeriods.valueOf(request.getType().toUpperCase());
 
+        logger.debug("From Date: {}, To Date: {}, Quantity: {}, Time Period Type: {}", fromDate, toDate, quantity, timePeriodType);
+
         List<UploadInfo> uploadInfos = uploadInfoRepository.findAllBySourceInAndDateIsAfterAndDateIsBefore(
                 request.getIndexs(), fromDate, toDate
         );
+
+        if (uploadInfos.isEmpty()) {
+            logger.warn("No upload infos found for the given date range and indexes.");
+        }
 
         Map<String, List<UploadInfo>> dataBySource = uploadInfos.stream()
                 .sorted(Comparator.comparing(UploadInfo::getDate))
@@ -595,21 +613,40 @@ public class IndexServiceImpl implements IndexService {
 
         List<IncomeWithApyAllDate> result = new ArrayList<>();
         for (Map.Entry<String, List<UploadInfo>> entry : dataBySource.entrySet()) {
+            logger.debug("Processing source: {}", entry.getKey());
             List<CsvData> dataList = csvDataRepository.findAllByUploadInfoIdIn(entry.getValue());
             Map<LocalDate, CsvData> localDateCsvDataMap = dataList.stream().collect(Collectors.toMap(a -> a.getUploadInfoId().getDate(), a -> a, (c, v) -> v));
+
             for (int i = 0; i < dataList.size(); i++) {
                 CsvData minData = dataList.get(i);
                 LocalDate minDate = minData.getUploadInfoId().getDate();
                 LocalDate nextDate = TimePeriods.getAnalyze(timePeriodType, minDate, quantity);
                 CsvData nextDateCsv = localDateCsvDataMap.get(nextDate);
-                result.add(new IncomeWithApyAllDate(entry.getKey(), LocalDate.parse(request.getFrom()), LocalDate.parse(request.getTo()),
-                        timePeriodType.toString(), minDate.toString(), nextDate.toString(),
-                        minData.getLow(), nextDateCsv.getHigh(),
-                        nextDateCsv.getHigh() - minData.getLow(), calculateApy(minData.getLow(), nextDateCsv.getHigh(), quantity, timePeriodType)));
+
+                if (nextDateCsv != null && nextDate.isBefore(toDate)) {
+                    logger.debug("Adding result for dates {} to {}", minDate, nextDate);
+                    result.add(new IncomeWithApyAllDate(
+                        entry.getKey(),
+                        fromDate,
+                        toDate.minusDays(1),
+                        timePeriodType.toString() + " " + quantity,
+                        minDate.toString(),
+                        nextDate.toString(),
+                        minData.getLow(),
+                        nextDateCsv.getHigh(),
+                        nextDateCsv.getHigh() - minData.getLow(),
+                        calculateApy(minData.getLow(), nextDateCsv.getHigh(), quantity, timePeriodType)
+                    ));
+                } else {
+                    logger.debug("Next date {} is not within the range or nextDateCsv is null", nextDate);
+                }
             }
         }
+
+        logger.debug("Final result size: {}", result.size());
         return result;
     }
+
 
 
 //    if (request == null) {
@@ -668,6 +705,7 @@ public class IndexServiceImpl implements IndexService {
 //    return result;
 
 
+    //TODO we get empty result
     @Override
     public List<IncomeWithIrr> calculateIncomeWithIrr(CalculateIncomeWithApyRequest request) {
         // Check if the request and its parameters are present
@@ -740,7 +778,7 @@ public class IndexServiceImpl implements IndexService {
 
             SubPeriodWithIrr subPeriodWithIrrForMin = new SubPeriodWithIrr(entry.getKey(), dateOfPurchaseForMinValue.toString(), purchaseAmmountForMinValue, dateofSaleForMinValue.toString(), saleAmmountForMinValue, incomeForMinValue, calculateIRR(new double[]{-purchaseAmmountForMinValue, 0, saleAmmountForMinValue}));
             SubPeriodWithIrr subPeriodWithIrrForMax = new SubPeriodWithIrr(entry.getKey(), dateOfPurchaseFormaxValue.toString(), purchaseAmmountForMaxValue, dateofSaleForMaxValue.toString(), saleAmmountForMaxValue, incomeForMaxValue, calculateIRR(new double[]{-purchaseAmmountForMaxValue, 0, saleAmmountForMaxValue}));
-            result.add(new IncomeWithIrr(request.getFrom(), request.getTo(), request.getType(), request.getIndexs(), subPeriodWithIrrForMax, subPeriodWithIrrForMax));
+            result.add(new IncomeWithIrr(request.getFrom(), request.getTo(), request.getType(), request.getIndexs(), subPeriodWithIrrForMax, subPeriodWithIrrForMax, null ));
         }
         return result;
     }

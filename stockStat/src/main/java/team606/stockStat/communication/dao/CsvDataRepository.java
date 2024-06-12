@@ -10,7 +10,7 @@ import java.util.Date;
 import java.util.List;
 
 public interface CsvDataRepository extends JpaRepository<CsvData, Long> {
-    List<CsvData> findAllByUploadInfoIdIn(List<UploadInfo>ids);
+	 List<CsvData> findAllByUploadInfoIdIn(List<UploadInfo> uploadInfos1);
 
     void deleteAllByUploadInfoId_Source(String source);
     

@@ -29,6 +29,7 @@ import team606.stockStat.communication.dto.CalculateSumPackageRequest;
 import team606.stockStat.communication.dto.CorrelationRequest;
 import team606.stockStat.communication.dto.IncomeWithApy;
 import team606.stockStat.communication.dto.IncomeWithApyAllDate;
+import team606.stockStat.communication.dto.IncomeWithApyResponse;
 import team606.stockStat.communication.dto.IncomeWithIrr;
 import team606.stockStat.communication.dto.PeriodData;
 import team606.stockStat.communication.dto.PeriodDataCloseBetween;
@@ -141,8 +142,8 @@ public class CommunicetionController {
     }
 
     @PostMapping("/index/apy")
-    public ResponseEntity<List<IncomeWithApy>> calculateIncomeWithApy(@RequestBody CalculateIncomeWithApyRequest request) {
-    	 List<IncomeWithApy> result = indexService.calculateIncomeWithApy(request);
+    public ResponseEntity<IncomeWithApyResponse> calculateIncomeWithApy(@RequestBody CalculateIncomeWithApyRequest request) {
+        IncomeWithApyResponse result = indexService.calculateIncomeWithApy(request);
         return ResponseEntity.ok(result);
     }
 
